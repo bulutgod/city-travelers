@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Mirror;
 using UnityEngine;
 
@@ -65,16 +65,22 @@ public class GameNetworkManager : NetworkManager
 
     public override void OnServerDisconnect(NetworkConnectionToClient conn)
     {
-       
-        if (conn.identity != null)
+        try
         {
-            PlayerObject player = conn.identity.GetComponent<PlayerObject>();
-            if (player != null)
+            if (conn != null && conn.identity != null)
             {
-                _connectedPlayers.Remove(player);
-                Debug.Log($"[Network] Oyuncu ayrıldı ve listeden çıkarıldı. " +
-                          $"Index: {player.playerIndex}");
+                PlayerObject player = conn.identity.GetComponent<PlayerObject>();
+                if (player != null)
+                {
+                    _connectedPlayers.Remove(player);
+                    Debug.Log($"[Network] Oyuncu ayrıldı ve listeden çıkarıldı. " +
+                              $"Index: {player.playerIndex}");
+                }
             }
+        }
+        catch (System.Exception)
+        {
+            // Kapanis sirasinda conn/identity bazen gecersiz olabiliyor; sessizce gec.
         }
 
         base.OnServerDisconnect(conn);

@@ -159,6 +159,7 @@ public class LobbyUINew : MonoBehaviour
         RefreshLobby();
         StartRefresh();
         StartCoroutine(FitLobbyToScreenNextFrame());
+        StartCoroutine(RefreshLobbyAfterSpawnDelay());
     }
 
     /// <summary>
@@ -184,6 +185,7 @@ public class LobbyUINew : MonoBehaviour
         float canvasH = canvasRect.rect.height;
         if (contentW <= 0 || contentH <= 0) yield break;
         float scale = Mathf.Min(1f, canvasW / contentW, canvasH / contentH);
+        if (float.IsNaN(scale) || scale <= 0f) scale = 1f;
         lobbyPanel.transform.localScale = new Vector3(scale, scale, 1f);
     }
 
@@ -217,6 +219,17 @@ public class LobbyUINew : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Client lobiye girdikten sonra spawn gecikmesi icin bir kez daha refresh (kartlarin gorunmesini saglar).
+    /// </summary>
+    private IEnumerator RefreshLobbyAfterSpawnDelay()
+    {
+        yield return new WaitForSeconds(0.5f);
+        RefreshLobby();
+        yield return new WaitForSeconds(0.5f);
+        RefreshLobby();
+    }
+
     public void RefreshLobby()
     {
         // Oyuncu sayùsù
@@ -231,7 +244,7 @@ public class LobbyUINew : MonoBehaviour
         {
             string idStr = lobby.Value.Id.ToString();
             string shortId = idStr.Length > 8 ? idStr.Substring(0, 8) : idStr;
-            lobbyIdText.text = $"LOBù #{shortId}";
+            lobbyIdText.text = "LOBI #" + shortId;
         }
 
         // Kartlarù gùncelle
@@ -263,13 +276,22 @@ public class LobbyUINew : MonoBehaviour
         foreach (var spawned in NetworkClient.spawned.Values)
         {
             var p = spawned.GetComponent<PlayerObject>();
-            if (p != null) list.Add(p);
+            if (p != null && !list.Contains(p)) list.Add(p);
+        }
+
+        if (NetworkServer.active)
+        {
+            foreach (var spawned in NetworkServer.spawned.Values)
+            {
+                var p = spawned.GetComponent<PlayerObject>();
+                if (p != null && !list.Contains(p)) list.Add(p);
+            }
         }
 
         if (list.Count == 0)
         {
             var found = FindObjectsByType<PlayerObject>(FindObjectsSortMode.None);
-            list.AddRange(found);
+            foreach (var p in found) if (!list.Contains(p)) list.Add(p);
         }
 
         list.Sort((a, b) => a.playerIndex.CompareTo(b.playerIndex));

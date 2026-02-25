@@ -8,11 +8,12 @@ public class SteamLobbyManager : MonoBehaviour
 {
     public static SteamLobbyManager Instance { get; private set; }
 
-    [Header("Lobi Ayarları")]
+    [Header("Lobi Ayarlar")]
     [SerializeField] private int maxPlayers = 4;
 
     public Lobby CurrentLobby { get; private set; }
     private bool _inLobby = false;
+    private bool _weJustCreatedLobby = false;
 
     #region Unity Lifecycle
 
@@ -34,7 +35,7 @@ public class SteamLobbyManager : MonoBehaviour
         Steamworks.SteamNetworkingUtils.InitRelayNetworkAccess();
 
         RegisterCallbacks();
-        Debug.Log($"[Steam] Giriş yapıldı: {SteamClient.Name} ({SteamClient.SteamId})");
+        Debug.Log($"[Steam] Giri yapld: {SteamClient.Name} ({SteamClient.SteamId})");
         CheckCommandLineLobbyJoin();
     }
 
@@ -48,7 +49,7 @@ public class SteamLobbyManager : MonoBehaviour
             {
                 if (ulong.TryParse(args[i + 1], out ulong lobbyId))
                 {
-                    Debug.Log($"[Steam] Komut satırından lobi bulundu: {lobbyId}");
+                    Debug.Log($"[Steam] Komut satrndan lobi bulundu: {lobbyId}");
                     
                     StartCoroutine(JoinLobbyDelayed(lobbyId));
                 }
@@ -70,7 +71,7 @@ public class SteamLobbyManager : MonoBehaviour
 
     #endregion
 
-    #region Callback Kayıt
+    #region Callback Kayt
     
     private void RegisterCallbacks()
     {
@@ -101,7 +102,7 @@ public class SteamLobbyManager : MonoBehaviour
 
         if (NetworkServer.active || NetworkClient.active)
         {
-            Debug.LogWarning("[Steam] Zaten host/client aktif, CreateLobby atlandı.");
+            Debug.LogWarning("[Steam] Zaten host/client aktif, CreateLobby atland.");
             return;
         }
 
@@ -111,13 +112,13 @@ public class SteamLobbyManager : MonoBehaviour
             return;
         }
 
-        Debug.Log("[Steam] Lobi oluşturuluyor...");
+        Debug.Log("[Steam] Lobi oluturuluyor...");
 
         Lobby? lobby = await SteamMatchmaking.CreateLobbyAsync(maxPlayers);
 
         if (!lobby.HasValue)
         {
-            Debug.LogError("[Steam] Lobi oluşturulamadı!");
+            Debug.LogError("[Steam] Lobi oluturulamad!");
             return;
         }
 
@@ -129,12 +130,12 @@ public class SteamLobbyManager : MonoBehaviour
         lobby.Value.SetData("HostSteamId", SteamClient.SteamId.ToString());
         lobby.Value.SetData("GameName", "RichContractor");
 
-        Debug.Log($"[Steam] Lobi oluşturuldu ve metadata yazıldı. ID: {lobby.Value.Id}");
+        Debug.Log($"[Steam] Lobi oluturuldu ve metadata yazld. ID: {lobby.Value.Id}");
     }
 
     public async void JoinLobby(SteamId lobbyId)
     {
-        Debug.Log($"[Steam] Lobiye katılınıyor: {lobbyId}");
+        Debug.Log($"[Steam] Lobiye katlnyor: {lobbyId}");
         await SteamMatchmaking.JoinLobbyAsync(lobbyId);
     }
  
@@ -144,7 +145,8 @@ public class SteamLobbyManager : MonoBehaviour
 
         CurrentLobby.Leave();
         _inLobby = false;
-        Debug.Log("[Steam] Lobiden ayrıldı.");
+        _weJustCreatedLobby = false;
+        Debug.Log("[Steam] Lobiden ayrld.");
     }
 
     #endregion
@@ -155,12 +157,13 @@ public class SteamLobbyManager : MonoBehaviour
     {
         if (result != Result.OK)
         {
-            Debug.LogError($"[Steam] OnLobbyCreated hatası: {result}");
+            Debug.LogError($"[Steam] OnLobbyCreated hatas: {result}");
             return;
         }
 
         CurrentLobby = lobby;
         _inLobby = true;
+        _weJustCreatedLobby = true;
         Debug.Log($"[Steam] OnLobbyCreated tetiklendi. Lobi ID: {lobby.Id}");
 
         GameNetworkManager.Instance.StartHost();
@@ -173,9 +176,21 @@ public class SteamLobbyManager : MonoBehaviour
         _inLobby = true;
         Debug.Log($"[Steam] Lobiye girildi: {lobby.Id}");
 
-        // Host taraf?nda zaten lobi olu?turma ak???nda UI aç?l?yor.
-        // Yine de güvenli olmas? için yeni lobi arayüzünü tetikle.
+        // Host taraf?nda zaten lobi olu?turma ak???nda UI a?l?yor.
+        // Yine de gvenli olmas? iin yeni lobi arayzn tetikle.
+        // Lobi sahibi bizsek host'uz; kendimize client ile baglanmayalim (You can't connect to yourself).
+        if (_weJustCreatedLobby)
+        {
+            _weJustCreatedLobby = false;
+            LobbyUINew.NotifyLobbyJoined();
+            return;
+        }
         if (NetworkServer.active)
+        {
+            LobbyUINew.NotifyLobbyJoined();
+            return;
+        }
+        if (lobby.IsOwnedBy(SteamClient.SteamId))
         {
             LobbyUINew.NotifyLobbyJoined();
             return;
@@ -185,19 +200,19 @@ public class SteamLobbyManager : MonoBehaviour
 
         if (string.IsNullOrEmpty(hostSteamIdStr))
         {
-            Debug.LogError("[Steam] HostSteamId metadata'sı okunamadı!");
+            Debug.LogError("[Steam] HostSteamId metadata's okunamad!");
             return;
         }
 
         GameNetworkManager.Instance.networkAddress = hostSteamIdStr;
         GameNetworkManager.Instance.StartClient();
 
-        Debug.Log($"[Network] Client başlatıldı. Host: {hostSteamIdStr}");
+        Debug.Log($"[Network] Client balatld. Host: {hostSteamIdStr}");
     }
 
     private void OnGameLobbyJoinRequested(Lobby lobby, SteamId friendSteamId)
     {
-        Debug.Log($"[Steam] Lobiye katılma isteği: {lobby.Id}, Arkadaş: {friendSteamId}");
+        Debug.Log($"[Steam] Lobiye katlma istei: {lobby.Id}, Arkada: {friendSteamId}");
 
         if (NetworkServer.active || NetworkClient.active)
         {
