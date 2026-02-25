@@ -173,9 +173,11 @@ public class SteamLobbyManager : MonoBehaviour
         _inLobby = true;
         Debug.Log($"[Steam] Lobiye girildi: {lobby.Id}");
 
+        // Host taraf?nda zaten lobi olu?turma ak???nda UI aç?l?yor.
+        // Yine de güvenli olmas? için yeni lobi arayüzünü tetikle.
         if (NetworkServer.active)
         {
-            LobbyUI.NotifyLobbyJoined();
+            LobbyUINew.NotifyLobbyJoined();
             return;
         }
 
