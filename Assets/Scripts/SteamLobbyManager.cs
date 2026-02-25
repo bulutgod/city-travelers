@@ -164,7 +164,7 @@ public class SteamLobbyManager : MonoBehaviour
         Debug.Log($"[Steam] OnLobbyCreated tetiklendi. Lobi ID: {lobby.Id}");
 
         GameNetworkManager.Instance.StartHost();
-        LobbyUI.NotifyLobbyJoined();
+        LobbyUINew.NotifyLobbyJoined();
     }
 
     private void OnLobbyEntered(Lobby lobby)

@@ -16,8 +16,15 @@ public class PlayerObject : NetworkBehaviour
 
     [SyncVar(hook = nameof(OnSteamIdChanged))]
     public ulong steamId = 0;
+    [SyncVar(hook = nameof(OnCharacterIndexChanged))]
+    public int selectedCharacterIndex = 0;
 
-   
+    private void OnCharacterIndexChanged(int oldVal, int newVal)
+    {
+        // Kart rengini güncelle - LobbyUINew üzerinden
+        LobbyUINew.Instance?.RefreshLobby();
+    }
+
     public Texture2D avatarTexture { get; private set; }
 
     public override void OnStartServer()

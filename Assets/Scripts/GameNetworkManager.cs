@@ -33,7 +33,7 @@ public class GameNetworkManager : NetworkManager
         }
 
         Debug.Log("[Network] Sunucuya bağlandı.");
-        LobbyUI.NotifyLobbyJoined();
+        LobbyUINew.NotifyLobbyJoined();
     }
     public override void OnClientDisconnect()
     {
