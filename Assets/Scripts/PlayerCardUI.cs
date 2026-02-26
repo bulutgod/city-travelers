@@ -1,18 +1,19 @@
+using Steamworks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Lobi ekran?ndaki her oyuncu kart?n? yˆnetir.
+/// Lobi ekran?ndaki her oyuncu kart?n? yùnetir.
 /// `LobbyUINew` taraf?ndan kullan?l?r.
 /// </summary>
 public class PlayerCardUI : MonoBehaviour
 {
     [Header("Kart Yap?s?")]
     [SerializeField] private Image cardBackground;           // Kart zemini
-    [SerializeField] private Image cardOutline;              // Local oyuncu iÁin pembe outline
+    [SerializeField] private Image cardOutline;              // Local oyuncu iùin pembe outline
 
-    [Header("‹st Bar (Avatar + ?sim)")]
+    [Header("ùst Bar (Avatar + ?sim)")]
     [SerializeField] private RawImage steamAvatarImage;      // Steam profil foto?raf?
     [SerializeField] private TextMeshProUGUI steamNameText;  // Steam kullan?c? ad?
 
@@ -30,7 +31,7 @@ public class PlayerCardUI : MonoBehaviour
 
     [Header("Durum Katmanlar?")]
     [SerializeField] private GameObject waitingOverlay;      // "Bekleniyor" paneli
-    [SerializeField] private GameObject activeContent;       // Normal kart iÁeri?i
+    [SerializeField] private GameObject activeContent;       // Normal kart iùeri?i
 
     [Header("Karakter Arka Plan Renkleri")]
     [SerializeField]
@@ -65,13 +66,19 @@ public class PlayerCardUI : MonoBehaviour
         if (cardOutline)
             cardOutline.color = IsLocalPlayer ? _localOutlineColor : _normalOutlineColor;
 
-        // Avatar
+        // Avatar: host icin gecikme olabiliyor, local player icin Steam'den yukle
         if (steamAvatarImage)
         {
             if (player.avatarTexture != null)
             {
                 steamAvatarImage.texture = player.avatarTexture;
                 steamAvatarImage.color = Color.white;
+            }
+            else if (player.isLocalPlayer && SteamClient.IsValid)
+            {
+                steamAvatarImage.texture = null;
+                steamAvatarImage.color = new Color(1f, 1f, 1f, 0.1f);
+                StartCoroutine(LoadLocalPlayerAvatar());
             }
             else
             {
@@ -80,12 +87,14 @@ public class PlayerCardUI : MonoBehaviour
             }
         }
 
-        // ?sim
+        // Isim: host icin SyncVar gecikmesi olabiliyor, SteamClient'dan fallback
         if (steamNameText)
         {
-            var name = string.IsNullOrWhiteSpace(player.steamName)
-                ? "OYUNCU"
-                : player.steamName;
+            var name = player.steamName;
+            if (string.IsNullOrWhiteSpace(name) && player.isLocalPlayer && SteamClient.IsValid)
+                name = SteamClient.Name ?? "Host";
+            if (string.IsNullOrWhiteSpace(name))
+                name = "OYUNCU";
             steamNameText.text = name.ToUpperInvariant();
         }
 
@@ -99,7 +108,7 @@ public class PlayerCardUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Kart? bo? slot olarak gˆster.
+    /// Kart? bo? slot olarak gùster.
     /// </summary>
     public void SetEmpty()
     {
@@ -122,7 +131,7 @@ public class PlayerCardUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Karakter rengine gˆre arka plan? g¸ncelle.
+    /// Karakter rengine gùre arka plan? gùncelle.
     /// </summary>
     public void RefreshCharacterColor(int index)
     {
@@ -137,7 +146,7 @@ public class PlayerCardUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Kart ¸zerindeki zar gˆrselinin rengini g¸nceller.
+    /// Kart ùzerindeki zar gùrselinin rengini gùnceller.
     /// </summary>
     public void SetDiceColor(Color diceColor, Color dotColor)
     {
@@ -145,6 +154,29 @@ public class PlayerCardUI : MonoBehaviour
         if (diceDot1) diceDot1.color = dotColor;
         if (diceDot2) diceDot2.color = dotColor;
         if (diceDot3) diceDot3.color = dotColor;
+    }
+
+    private System.Collections.IEnumerator LoadLocalPlayerAvatar()
+    {
+        if (!SteamClient.IsValid || steamAvatarImage == null) yield break;
+        var task = SteamFriends.GetLargeAvatarAsync(SteamClient.SteamId);
+        yield return new UnityEngine.WaitUntil(() => task.IsCompleted);
+        if (task.Result.HasValue && steamAvatarImage != null)
+        {
+            var img = task.Result.Value;
+            var tex = new Texture2D((int)img.Width, (int)img.Height, TextureFormat.RGBA32, false);
+            var flipped = new byte[img.Data.Length];
+            int rowSize = (int)img.Width * 4;
+            for (int y = 0; y < img.Height; y++)
+            {
+                int src = (int)(img.Height - 1 - y);
+                System.Array.Copy(img.Data, src * rowSize, flipped, y * rowSize, rowSize);
+            }
+            tex.LoadRawTextureData(flipped);
+            tex.Apply();
+            steamAvatarImage.texture = tex;
+            steamAvatarImage.color = Color.white;
+        }
     }
 
     /// <summary>

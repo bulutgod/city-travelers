@@ -4691,10 +4691,11 @@ MonoBehaviour:
   disconnectInactiveConnections: 0
   disconnectInactiveTimeout: 60
   authenticator: {fileID: 0}
-  playerPrefab: {fileID: 450438121901237687, guid: 4b469cb6f1588d147857bc632e5d7628, type: 3}
+  playerPrefab: {fileID: 991234567890123456, guid: a1b2c3d4e5f6789012345678abcdef01, type: 3}
   autoCreatePlayer: 1
   playerSpawnMethod: 0
-  spawnPrefabs: []
+  spawnPrefabs:
+  - {fileID: 991234567890123456, guid: a1b2c3d4e5f6789012345678abcdef01, type: 3}
   exceptionsDisconnect: 1
   snapshotSettings:
     bufferTimeMultiplier: 2

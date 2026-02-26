@@ -60,7 +60,7 @@ namespace Mirror
         }
 
         GUIContent title;
-        Styles styles = new Styles();
+        Styles styles;
 
         public override GUIContent GetPreviewTitle()
         {
@@ -95,8 +95,10 @@ namespace Mirror
             if (identity == null)
                 return;
 
-            if (styles == null)
+            if (styles == null && EditorStyles.label != null)
                 styles = new Styles();
+            if (styles == null)
+                return;
 
 
             // padding

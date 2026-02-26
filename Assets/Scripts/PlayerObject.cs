@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using Mirror;
 using Steamworks;
 using Steamworks.Data;
@@ -19,10 +19,23 @@ public class PlayerObject : NetworkBehaviour
     [SyncVar(hook = nameof(OnCharacterIndexChanged))]
     public int selectedCharacterIndex = 0;
 
+    [SyncVar(hook = nameof(OnDiceIndexChanged))]
+    public int selectedDiceIndex = 0;
+
     private void OnCharacterIndexChanged(int oldVal, int newVal)
     {
-        // Kart rengini güncelle - LobbyUINew üzerinden
         LobbyUINew.Instance?.RefreshLobby();
+    }
+
+    private void OnDiceIndexChanged(int oldVal, int newVal)
+    {
+        LobbyUINew.Instance?.RefreshLobby();
+    }
+
+    [Command]
+    public void CmdSetDiceIndex(int index)
+    {
+        selectedDiceIndex = Mathf.Clamp(index, 0, 99);
     }
 
     public Texture2D avatarTexture { get; private set; }
@@ -31,20 +44,44 @@ public class PlayerObject : NetworkBehaviour
     {
         // Host kontrolü: connectionToClient null veya address "localhost" ise host'uz
         if (connectionToClient == null ||
+            string.IsNullOrEmpty(connectionToClient.address) ||
             connectionToClient.address == "localhost" ||
             !ulong.TryParse(connectionToClient.address, out ulong id))
         {
             // Bu obje host'a ait
-            steamId = SteamClient.SteamId.Value;
-            steamName = SteamClient.Name ?? "Host";
-            Debug.Log($"[Player] Host bilgisi set edildi: {steamName}");
+            if (SteamClient.IsValid)
+            {
+                steamId = SteamClient.SteamId.Value;
+                steamName = SteamClient.Name ?? "Host";
+            }
+            else
+            {
+                steamName = "Host";
+            }
+            Debug.Log($"[Player] Host bilgisi set edildi: {steamName} (steamId:{steamId})");
             return;
         }
 
-        // Client'ın SteamID'si address'ten geliyor
+        // Client'ın SteamID'si address'ten geliyor (FizzySteam genelde Steam ID string gonderir)
         steamId = id;
-        var friendId = new Steamworks.SteamId { Value = id };
-        steamName = new Steamworks.Friend(friendId).Name ?? "Oyuncu";
+        try
+        {
+            var friendId = new Steamworks.SteamId { Value = id };
+            steamName = new Steamworks.Friend(friendId).Name ?? "Oyuncu";
+        }
+        catch
+        {
+            steamName = "Oyuncu";
+        }
+
+        // Eger hala bos kaldiysa ve bu baglanti kendimizse (host) SteamClient'dan doldur
+        if (SteamClient.IsValid && (string.IsNullOrEmpty(steamName) || steamId == 0) &&
+            steamId == SteamClient.SteamId.Value)
+        {
+            steamId = SteamClient.SteamId.Value;
+            steamName = SteamClient.Name ?? "Host";
+        }
+
         Debug.Log($"[Player] Client bilgisi set edildi: {steamName} ({steamId})");
     }
 
@@ -72,6 +109,7 @@ public class PlayerObject : NetworkBehaviour
     private void OnSteamNameChanged(string oldVal, string newVal)
     {
         Debug.Log($"[Player] İsim güncellendi: {oldVal} → {newVal}");
+        LobbyUINew.Instance?.RefreshLobby();
     }
 
     private void OnSteamIdChanged(ulong oldVal, ulong newVal)
@@ -94,6 +132,7 @@ public class PlayerObject : NetworkBehaviour
             avatarTexture = ConvertToTexture2D(image);
             Debug.Log($"[Player] Avatar yüklendi: {steamName} " +
                       $"({image.Width}x{image.Height})");
+            LobbyUINew.Instance?.RefreshLobby();
         }
         else
         {

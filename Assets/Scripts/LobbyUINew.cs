@@ -147,8 +147,17 @@ public class LobbyUINew : MonoBehaviour
 
     public void ShowLobby()
     {
-        if (mainMenuPanel) mainMenuPanel.SetActive(false);
         if (lobbyPanel) lobbyPanel.SetActive(true);
+        if (mainMenuPanel) mainMenuPanel.SetActive(false);
+
+        if (playerCards != null)
+        {
+            for (int i = 0; i < playerCards.Length; i++)
+            {
+                if (playerCards[i] != null && playerCards[i].gameObject != null)
+                    playerCards[i].gameObject.SetActive(true);
+            }
+        }
 
         // Host kontrolù: start butonu sadece host'ta gùrùnùr
         bool isHost = NetworkServer.active;
@@ -186,6 +195,7 @@ public class LobbyUINew : MonoBehaviour
         if (contentW <= 0 || contentH <= 0) yield break;
         float scale = Mathf.Min(1f, canvasW / contentW, canvasH / contentH);
         if (float.IsNaN(scale) || scale <= 0f) scale = 1f;
+        scale = Mathf.Max(0.5f, scale);
         lobbyPanel.transform.localScale = new Vector3(scale, scale, 1f);
     }
 
@@ -220,14 +230,15 @@ public class LobbyUINew : MonoBehaviour
     }
 
     /// <summary>
-    /// Client lobiye girdikten sonra spawn gecikmesi icin bir kez daha refresh (kartlarin gorunmesini saglar).
+    /// Spawn gecikmesi icin aralikli refresh (FizzySteam host baglantisi gecikebiliyor).
     /// </summary>
     private IEnumerator RefreshLobbyAfterSpawnDelay()
     {
-        yield return new WaitForSeconds(0.5f);
-        RefreshLobby();
-        yield return new WaitForSeconds(0.5f);
-        RefreshLobby();
+        for (int i = 0; i < 8; i++)
+        {
+            yield return new WaitForSeconds(0.25f);
+            RefreshLobby();
+        }
     }
 
     public void RefreshLobby()
@@ -257,9 +268,18 @@ public class LobbyUINew : MonoBehaviour
                 playerCards[i].SetupWithPlayer(players[i]);
 
                 // Local oyuncunun kartùna zar rengini uygula
+                ApplyDiceToCard(playerCards[i], players[i]);
                 if (players[i].isLocalPlayer)
                 {
-                    ApplyDiceToCard(playerCards[i]);
+                    _selectedDiceIndex = players[i].selectedDiceIndex;
+                    var skin = dicePicker?.GetSkin(_selectedDiceIndex);
+                    if (skin != null)
+                    {
+                        if (dicePickButtonIcon) dicePickButtonIcon.color = skin.diceColor;
+                        if (dicePickButtonIconDot1) dicePickButtonIconDot1.color = skin.dotColor;
+                        if (dicePickButtonIconDot2) dicePickButtonIconDot2.color = skin.dotColor;
+                        if (dicePickButtonIconDot3) dicePickButtonIconDot3.color = skin.dotColor;
+                    }
                 }
             }
             else
@@ -269,29 +289,46 @@ public class LobbyUINew : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Baglantiyla spawn edilmis oyunculari dondurur.
+    /// Host: GameNetworkManager._connectedPlayers (en guvenilir kaynak).
+    /// Client: NetworkClient.spawned, sahne UI slotlari haric.
+    /// </summary>
     private List<PlayerObject> GetCurrentPlayers()
     {
         var list = new List<PlayerObject>();
 
-        foreach (var spawned in NetworkClient.spawned.Values)
+        if (NetworkServer.active && GameNetworkManager.Instance != null)
         {
-            var p = spawned.GetComponent<PlayerObject>();
-            if (p != null && !list.Contains(p)) list.Add(p);
-        }
-
-        if (NetworkServer.active)
-        {
-            foreach (var spawned in NetworkServer.spawned.Values)
-            {
-                var p = spawned.GetComponent<PlayerObject>();
+            var serverList = GameNetworkManager.Instance.GetConnectedPlayers();
+            foreach (var p in serverList)
                 if (p != null && !list.Contains(p)) list.Add(p);
-            }
         }
 
         if (list.Count == 0)
         {
-            var found = FindObjectsByType<PlayerObject>(FindObjectsSortMode.None);
-            foreach (var p in found) if (!list.Contains(p)) list.Add(p);
+            Transform slotContainer = (playerCards != null && playerCards.Length > 0 && playerCards[0] != null)
+                ? playerCards[0].transform.parent
+                : null;
+
+            foreach (var spawned in NetworkClient.spawned.Values)
+            {
+                var p = spawned.GetComponent<PlayerObject>();
+                if (p == null || list.Contains(p)) continue;
+                if (slotContainer != null && p.transform.IsChildOf(slotContainer)) continue;
+                list.Add(p);
+            }
+
+            if (NetworkServer.active)
+            {
+                foreach (var spawned in NetworkServer.spawned.Values)
+                {
+                    var p = spawned.GetComponent<PlayerObject>();
+                    if (p == null || list.Contains(p)) continue;
+                    if (slotContainer != null && p.transform.IsChildOf(slotContainer)) continue;
+                    list.Add(p);
+                }
+            }
         }
 
         list.Sort((a, b) => a.playerIndex.CompareTo(b.playerIndex));
@@ -356,16 +393,21 @@ public class LobbyUINew : MonoBehaviour
         }
 
         // Local oyuncunun kartùndaki zarù gùncelle
-        foreach (var card in playerCards)
+        var players = GetCurrentPlayers();
+        foreach (var p in players)
         {
-            if (card != null && card.IsLocalPlayer && skin != null)
-                ApplyDiceToCard(card);
+            if (p != null && p.isLocalPlayer)
+            {
+                p.CmdSetDiceIndex(index);
+                break;
+            }
         }
     }
 
-    private void ApplyDiceToCard(PlayerCardUI card)
+    private void ApplyDiceToCard(PlayerCardUI card, PlayerObject player)
     {
-        var skin = dicePicker?.GetSkin(_selectedDiceIndex);
+        if (player == null || dicePicker == null) return;
+        var skin = dicePicker.GetSkin(player.selectedDiceIndex);
         if (skin != null)
             card.SetDiceColor(skin.diceColor, skin.dotColor);
     }
@@ -392,7 +434,10 @@ public class LobbyUINew : MonoBehaviour
     {
         if (!NetworkServer.active) return;
         Debug.Log("[LobbyUI] Oyun baùlatùlùyor...");
-        // NetworkManager.singleton.ServerChangeScene("GameScene");
+        string gameScene = GameNetworkManager.Instance != null ? GameNetworkManager.Instance.GameSceneName : "GameScene";
+        if (string.IsNullOrEmpty(gameScene)) gameScene = "GameScene";
+        Debug.Log($"[LobbyUI] Oyun baslatiliyor: {gameScene}");
+        NetworkManager.singleton.ServerChangeScene(gameScene);
     }
 
     private void OnCopyIdClicked()

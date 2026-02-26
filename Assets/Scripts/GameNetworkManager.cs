@@ -6,6 +6,10 @@ public class GameNetworkManager : NetworkManager
 {
     public static GameNetworkManager Instance => singleton as GameNetworkManager;
 
+    [Tooltip("Lobiden 'Oyunu Baslat' ile gidilecek sahne adi (Build Settings'te olmali).")]
+    [SerializeField] string gameSceneName = "GameScene";
+    public string GameSceneName => gameSceneName;
+
     private readonly List<PlayerObject> _connectedPlayers = new List<PlayerObject>();
 
     #region Mirror Lifecycle
@@ -60,6 +64,8 @@ public class GameNetworkManager : NetworkManager
                       $"Index:{player.playerIndex} " +
                       $"Name:{player.steamName} " +
                       $"SteamId:{player.steamId}");
+
+            LobbyUINew.Instance?.RefreshLobby();
         }
     }
 
@@ -80,10 +86,17 @@ public class GameNetworkManager : NetworkManager
         }
         catch (System.Exception)
         {
-            // Kapanis sirasinda conn/identity bazen gecersiz olabiliyor; sessizce gec.
+            // conn/identity gecersiz olabiliyor; sessizce gec.
         }
 
-        base.OnServerDisconnect(conn);
+        try
+        {
+            base.OnServerDisconnect(conn);
+        }
+        catch (System.Exception)
+        {
+            // Kapanis sirasinda Mirror icinde NullReferenceException olabiliyor; sessizce gec.
+        }
     }
 
     public override void OnStopHost()

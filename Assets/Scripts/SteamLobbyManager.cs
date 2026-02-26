@@ -1,7 +1,8 @@
+using System.Collections;
 using System.Threading.Tasks;
 using Mirror;
-using Steamworks;          
-using Steamworks.Data;    
+using Steamworks;
+using Steamworks.Data;
 using UnityEngine;
 
 public class SteamLobbyManager : MonoBehaviour
@@ -167,6 +168,15 @@ public class SteamLobbyManager : MonoBehaviour
         Debug.Log($"[Steam] OnLobbyCreated tetiklendi. Lobi ID: {lobby.Id}");
 
         GameNetworkManager.Instance.StartHost();
+        LobbyUINew.NotifyLobbyJoined();
+        StartCoroutine(NotifyLobbyUIAgainAfterDelay());
+    }
+
+    private IEnumerator NotifyLobbyUIAgainAfterDelay()
+    {
+        yield return new WaitForSeconds(0.3f);
+        LobbyUINew.NotifyLobbyJoined();
+        yield return new WaitForSeconds(0.5f);
         LobbyUINew.NotifyLobbyJoined();
     }
 
