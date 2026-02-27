@@ -409,7 +409,7 @@ public class LobbyUINew : MonoBehaviour
         if (player == null || dicePicker == null) return;
         var skin = dicePicker.GetSkin(player.selectedDiceIndex);
         if (skin != null)
-            card.SetDiceColor(skin.diceColor, skin.dotColor);
+            card.SetDiceColor(skin.diceColor, skin.dotColor, player.selectedDiceIndex);
     }
 
     // -------------------------------------------------------

@@ -28,6 +28,8 @@ public class PlayerCardUI : MonoBehaviour
     [SerializeField] private Image diceDot1;                 // Zar noktalar?
     [SerializeField] private Image diceDot2;
     [SerializeField] private Image diceDot3;
+    [Tooltip("Sadece MAVİ zar seçiliyken kullanılır; boş bırakılırsa mavi de koddan üretilir.")]
+    [SerializeField] private Sprite maviZarSprite;
 
     [Header("Durum Katmanlar?")]
     [SerializeField] private GameObject waitingOverlay;      // "Bekleniyor" paneli
@@ -146,11 +148,34 @@ public class PlayerCardUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Kart �zerindeki zar g�rselinin rengini g�nceller.
+    /// Kart üzerindeki zar görselini günceller. PEMBE vb. koddan (renk + nokta), MAVİ seçiliyse ve maviZarSprite atanmışsa özel mavi zar sprite'ı kullanılır.
     /// </summary>
-    public void SetDiceColor(Color diceColor, Color dotColor)
+    public void SetDiceColor(Color diceColor, Color dotColor, int diceSkinIndex)
     {
-        if (diceImage) diceImage.color = diceColor;
+        const int maviDiceSkinIndex = 1; // DicePickerUI.diceSkins sırası: 0=PEMBE, 1=MAVİ, ...
+        bool useMaviZarSprite = (diceSkinIndex == maviDiceSkinIndex && maviZarSprite != null);
+
+        if (diceImage)
+        {
+            if (useMaviZarSprite)
+            {
+                diceImage.sprite = maviZarSprite;
+                diceImage.color = Color.white;
+                diceImage.preserveAspect = true;
+            }
+            else
+            {
+                diceImage.sprite = null;
+                diceImage.color = diceColor;
+                diceImage.preserveAspect = false;
+            }
+        }
+
+        bool showDots = !useMaviZarSprite;
+        if (diceDot1) diceDot1.gameObject.SetActive(showDots);
+        if (diceDot2) diceDot2.gameObject.SetActive(showDots);
+        if (diceDot3) diceDot3.gameObject.SetActive(showDots);
+
         if (diceDot1) diceDot1.color = dotColor;
         if (diceDot2) diceDot2.color = dotColor;
         if (diceDot3) diceDot3.color = dotColor;

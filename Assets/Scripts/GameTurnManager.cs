@@ -52,6 +52,14 @@ public class GameTurnManager : NetworkBehaviour
             var players = GetOrderedPlayers();
             if (players.Count > 0)
             {
+                var snap = GameNetworkManager.Instance != null ? GameNetworkManager.Instance.GetMigrationSnapshot() : null;
+                if (snap != null && snap.isValid)
+                {
+                    ServerRestoreFromSnapshot(snap);
+                    if (GameNetworkManager.Instance != null)
+                        GameNetworkManager.Instance.ClearMigrationSnapshot();
+                    yield break;
+                }
                 InitializeMatch(players);
                 yield break;
             }
@@ -59,6 +67,19 @@ public class GameTurnManager : NetworkBehaviour
         }
 
         Debug.LogWarning("[Turn] Oyuncular bulunamadi, tur sistemi baslatilamadi.");
+    }
+
+    [Server]
+    public void ServerRestoreFromSnapshot(GameStateSnapshot snap)
+    {
+        if (snap == null || !snap.isValid) return;
+        currentTurnPlayerIndex = snap.currentTurnPlayerIndex;
+        turnNumber = snap.turnNumber;
+        lastRollValue = snap.lastRollValue;
+        lastRollPlayerIndex = snap.lastRollPlayerIndex;
+        isRolling = false;
+        rollingPlayerIndex = -1;
+        Debug.Log($"[Turn] Migration restore. Aktif oyuncu:{currentTurnPlayerIndex} Tur:{turnNumber}");
     }
 
     [Server]

@@ -53,6 +53,17 @@ public class PlayerObject : NetworkBehaviour
         GameTurnManager.Instance.ServerTryRoll(this);
     }
 
+    /// <summary>
+    /// Oyuncu oyun icinde "Terket"e bastiginda cagirilir; sunucu state'i 3 dk tutmaz.
+    /// </summary>
+    [Command]
+    public void CmdVoluntaryLeave()
+    {
+        ulong id = steamId != 0 ? steamId : (SteamClient.IsValid ? SteamClient.SteamId.Value : 0);
+        if (GameNetworkManager.Instance != null)
+            GameNetworkManager.Instance.ServerMarkVoluntaryLeave(id);
+    }
+
     [Server]
     public void ServerMoveBy(int steps, int boardSpaceCount)
     {
