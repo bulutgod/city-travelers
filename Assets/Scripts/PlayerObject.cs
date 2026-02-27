@@ -22,6 +22,9 @@ public class PlayerObject : NetworkBehaviour
     [SyncVar(hook = nameof(OnDiceIndexChanged))]
     public int selectedDiceIndex = 0;
 
+    [SyncVar(hook = nameof(OnSpaceIndexChanged))]
+    public int currentSpaceIndex = 0;
+
     private void OnCharacterIndexChanged(int oldVal, int newVal)
     {
         LobbyUINew.Instance?.RefreshLobby();
@@ -32,10 +35,30 @@ public class PlayerObject : NetworkBehaviour
         LobbyUINew.Instance?.RefreshLobby();
     }
 
+    private void OnSpaceIndexChanged(int oldVal, int newVal)
+    {
+        // Oyun sahnesinde piyon hareketi bu degere baglanacak.
+    }
+
     [Command]
     public void CmdSetDiceIndex(int index)
     {
         selectedDiceIndex = Mathf.Clamp(index, 0, 99);
+    }
+
+    [Command]
+    public void CmdRequestRoll()
+    {
+        if (GameTurnManager.Instance == null) return;
+        GameTurnManager.Instance.ServerTryRoll(this);
+    }
+
+    [Server]
+    public void ServerMoveBy(int steps, int boardSpaceCount)
+    {
+        if (boardSpaceCount <= 0) boardSpaceCount = 38;
+        int next = currentSpaceIndex + steps;
+        currentSpaceIndex = ((next % boardSpaceCount) + boardSpaceCount) % boardSpaceCount;
     }
 
     public Texture2D avatarTexture { get; private set; }

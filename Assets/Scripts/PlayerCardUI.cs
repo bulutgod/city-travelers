@@ -4,16 +4,16 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Lobi ekran?ndaki her oyuncu kart?n? yùnetir.
+/// Lobi ekran?ndaki her oyuncu kart?n? yÔøΩnetir.
 /// `LobbyUINew` taraf?ndan kullan?l?r.
 /// </summary>
 public class PlayerCardUI : MonoBehaviour
 {
     [Header("Kart Yap?s?")]
     [SerializeField] private Image cardBackground;           // Kart zemini
-    [SerializeField] private Image cardOutline;              // Local oyuncu iùin pembe outline
+    [SerializeField] private Image cardOutline;              // Local oyuncu iÔøΩin pembe outline
 
-    [Header("ùst Bar (Avatar + ?sim)")]
+    [Header("ÔøΩst Bar (Avatar + ?sim)")]
     [SerializeField] private RawImage steamAvatarImage;      // Steam profil foto?raf?
     [SerializeField] private TextMeshProUGUI steamNameText;  // Steam kullan?c? ad?
 
@@ -31,7 +31,7 @@ public class PlayerCardUI : MonoBehaviour
 
     [Header("Durum Katmanlar?")]
     [SerializeField] private GameObject waitingOverlay;      // "Bekleniyor" paneli
-    [SerializeField] private GameObject activeContent;       // Normal kart iùeri?i
+    [SerializeField] private GameObject activeContent;       // Normal kart iÔøΩeri?i
 
     [Header("Karakter Arka Plan Renkleri")]
     [SerializeField]
@@ -108,7 +108,7 @@ public class PlayerCardUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Kart? bo? slot olarak gùster.
+    /// Kart? bo? slot olarak gÔøΩster.
     /// </summary>
     public void SetEmpty()
     {
@@ -131,7 +131,7 @@ public class PlayerCardUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Karakter rengine gùre arka plan? gùncelle.
+    /// Karakter rengine gÔøΩre arka plan? gÔøΩncelle.
     /// </summary>
     public void RefreshCharacterColor(int index)
     {
@@ -146,7 +146,7 @@ public class PlayerCardUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Kart ùzerindeki zar gùrselinin rengini gùnceller.
+    /// Kart ÔøΩzerindeki zar gÔøΩrselinin rengini gÔøΩnceller.
     /// </summary>
     public void SetDiceColor(Color diceColor, Color dotColor)
     {

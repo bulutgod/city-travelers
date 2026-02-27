@@ -7,51 +7,51 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Ana lobi ekran controller'.
-/// Referans tasarmla birebir eleecek ekilde yaplandrld.
+/// Ana lobi ekranï¿½ controller'ï¿½.
+/// Referans tasarï¿½mla birebir eï¿½leï¿½ecek ï¿½ekilde yapï¿½landï¿½rï¿½ldï¿½.
 /// </summary>
 public class LobbyUINew : MonoBehaviour
 {
     public static LobbyUINew Instance { get; private set; }
 
     // -------------------------------------------------------
-    // Inspector Referanslar
+    // Inspector Referanslarï¿½
     // -------------------------------------------------------
 
     [Header("Paneller")]
     [SerializeField] private GameObject mainMenuPanel;
     [SerializeField] private GameObject lobbyPanel;
 
-    [Header("Ana Men")]
+    [Header("Ana Menï¿½")]
     [SerializeField] private Button hostButton;
     [SerializeField] private Button quitButton;
     [SerializeField] private RawImage menuAvatarImage;
     [SerializeField] private TextMeshProUGUI menuNameText;
 
-    [Header("Lobi - st Bilgi")]
+    [Header("Lobi - ï¿½st Bilgi")]
     [SerializeField] private TextMeshProUGUI playerCountText;  // "2 / 4 OYUNCU"
 
-    [Header("Lobi - Oyuncu Kartlar")]
+    [Header("Lobi - Oyuncu Kartlarï¿½")]
     [SerializeField] private PlayerCardUI[] playerCards;       // 4 adet, Inspector'dan ata
 
     [Header("Lobi - Alt Bar")]
-    [SerializeField] private Button dicePickButton;            // "ZAR SE" butonu
-    [SerializeField] private Image dicePickButtonIcon;         // Butonun iindeki zar grseli
+    [SerializeField] private Button dicePickButton;            // "ZAR SEï¿½" butonu
+    [SerializeField] private Image dicePickButtonIcon;         // Butonun iï¿½indeki zar gï¿½rseli
     [SerializeField] private Image dicePickButtonIconDot1;
     [SerializeField] private Image dicePickButtonIconDot2;
     [SerializeField] private Image dicePickButtonIconDot3;
-    [SerializeField] private TextMeshProUGUI lobbyIdText;      // "LOB #10977524"
+    [SerializeField] private TextMeshProUGUI lobbyIdText;      // "LOBï¿½ #10977524"
     [SerializeField] private Button copyIdButton;
     [SerializeField] private TextMeshProUGUI copyButtonText;
-    [SerializeField] private Button startGameButton;           // Sadece host grr
+    [SerializeField] private Button startGameButton;           // Sadece host gï¿½rï¿½r
     [SerializeField] private Button leaveButton;
 
     [Header("Zar Picker Modal")]
     [SerializeField] private DicePickerUI dicePicker;
 
-    [Header("Karakter Kameralar (3D iin)")]
-    [SerializeField] private Camera[] characterCameras;        // Her kart iin ayr camera
-    [SerializeField] private RenderTexture[] characterRTs;     // Her kamera iin RenderTexture
+    [Header("Karakter Kameralarï¿½ (3D iï¿½in)")]
+    [SerializeField] private Camera[] characterCameras;        // Her kart iï¿½in ayrï¿½ camera
+    [SerializeField] private RenderTexture[] characterRTs;     // Her kamera iï¿½in RenderTexture
 
     [Header("Ayarlar")]
     [SerializeField] private int maxPlayers = 4;
@@ -64,7 +64,7 @@ public class LobbyUINew : MonoBehaviour
     private int _selectedCharIndex = 0;
     private int _selectedDiceIndex = 0;
 
-    // Karakter arka plan renkleri (kartlarla elemeli)
+    // Karakter arka plan renkleri (kartlarla eï¿½leï¿½meli)
     private readonly Color[] _charColors = new Color[]
     {
         new Color(0.96f, 0.90f, 0.82f),
@@ -88,7 +88,7 @@ public class LobbyUINew : MonoBehaviour
 
     private void OnEnable()
     {
-        // Hierarchy'den yeniden aktif edildi?inde duruma gre do?ru paneli gster.
+        // Hierarchy'den yeniden aktif edildi?inde duruma gï¿½re do?ru paneli gï¿½ster.
         if (NetworkServer.active || NetworkClient.active)
             ShowLobby();
         else
@@ -105,7 +105,7 @@ public class LobbyUINew : MonoBehaviour
         quitButton?.onClick.AddListener(() => Application.Quit());
         dicePickButton?.onClick.AddListener(OnDicePickClicked);
 
-        // Zar seim callback
+        // Zar seï¿½im callback
         if (dicePicker != null)
             dicePicker.OnDiceSelected += OnDiceSelected;
 
@@ -120,7 +120,7 @@ public class LobbyUINew : MonoBehaviour
     }
 
     // -------------------------------------------------------
-    // Steam Profil Ykleme
+    // Steam Profil Yï¿½kleme
     // -------------------------------------------------------
 
     private async void LoadSteamProfile()
@@ -135,7 +135,7 @@ public class LobbyUINew : MonoBehaviour
     }
 
     // -------------------------------------------------------
-    // Panel Geileri
+    // Panel Geï¿½iï¿½leri
     // -------------------------------------------------------
 
     public void ShowMainMenu()
@@ -159,11 +159,11 @@ public class LobbyUINew : MonoBehaviour
             }
         }
 
-        // Host kontrol: start butonu sadece host'ta grnr
+        // Host kontrolï¿½: start butonu sadece host'ta gï¿½rï¿½nï¿½r
         bool isHost = NetworkServer.active;
         if (startGameButton) startGameButton.gameObject.SetActive(isHost);
 
-        // Karakter ok butonlar zaten PlayerCardUI iinde ynetiliyor
+        // Karakter ok butonlarï¿½ zaten PlayerCardUI iï¿½inde yï¿½netiliyor
 
         RefreshLobby();
         StartRefresh();
@@ -202,7 +202,7 @@ public class LobbyUINew : MonoBehaviour
     public static void NotifyLobbyJoined() => Instance?.ShowLobby();
 
     // -------------------------------------------------------
-    // Lobi Gncelleme
+    // Lobi Gï¿½ncelleme
     // -------------------------------------------------------
 
     private void StartRefresh()
@@ -243,7 +243,7 @@ public class LobbyUINew : MonoBehaviour
 
     public void RefreshLobby()
     {
-        // Oyuncu says
+        // Oyuncu sayï¿½sï¿½
         var players = GetCurrentPlayers();
 
         if (playerCountText)
@@ -258,7 +258,7 @@ public class LobbyUINew : MonoBehaviour
             lobbyIdText.text = "LOBI #" + shortId;
         }
 
-        // Kartlar gncelle
+        // Kartlarï¿½ gï¿½ncelle
         for (int i = 0; i < playerCards.Length; i++)
         {
             if (playerCards[i] == null) continue;
@@ -267,7 +267,7 @@ public class LobbyUINew : MonoBehaviour
             {
                 playerCards[i].SetupWithPlayer(players[i]);
 
-                // Local oyuncunun kartna zar rengini uygula
+                // Local oyuncunun kartï¿½na zar rengini uygula
                 ApplyDiceToCard(playerCards[i], players[i]);
                 if (players[i].isLocalPlayer)
                 {
@@ -336,11 +336,11 @@ public class LobbyUINew : MonoBehaviour
     }
 
     // -------------------------------------------------------
-    // Karakter Seimi
+    // Karakter Seï¿½imi
     // -------------------------------------------------------
 
     /// <summary>
-    /// PlayerCardUI'daki ok butonlarna bu metodlar bala.
+    /// PlayerCardUI'daki ok butonlarï¿½na bu metodlarï¿½ baï¿½la.
     /// </summary>
     public void OnPrevCharacter()
     {
@@ -356,21 +356,21 @@ public class LobbyUINew : MonoBehaviour
 
     private void UpdateLocalCharacter()
     {
-        // Local oyuncunun kartn bul ve gncelle
+        // Local oyuncunun kartï¿½nï¿½ bul ve gï¿½ncelle
         foreach (var card in playerCards)
         {
             if (card != null && card.IsLocalPlayer)
             {
                 card.RefreshCharacterColor(_selectedCharIndex);
-                // leride: 3D modeli de deitir
+                // ï¿½leride: 3D modeli de deï¿½iï¿½tir
             }
         }
 
-        // TODO: Server'a seim gnder (Command ile) - ileride eklenecek
+        // TODO: Server'a seï¿½im gï¿½nder (Command ile) - ileride eklenecek
     }
 
     // -------------------------------------------------------
-    // Zar Seimi
+    // Zar Seï¿½imi
     // -------------------------------------------------------
 
     private void OnDicePickClicked()
@@ -382,7 +382,7 @@ public class LobbyUINew : MonoBehaviour
     {
         _selectedDiceIndex = index;
 
-        // "ZAR SE" butonundaki mini zar gncelle
+        // "ZAR SEï¿½" butonundaki mini zarï¿½ gï¿½ncelle
         var skin = dicePicker?.GetSkin(index);
         if (skin != null)
         {
@@ -392,7 +392,7 @@ public class LobbyUINew : MonoBehaviour
             if (dicePickButtonIconDot3) dicePickButtonIconDot3.color = skin.dotColor;
         }
 
-        // Local oyuncunun kartndaki zar gncelle
+        // Local oyuncunun kartï¿½ndaki zarï¿½ gï¿½ncelle
         var players = GetCurrentPlayers();
         foreach (var p in players)
         {
@@ -413,7 +413,7 @@ public class LobbyUINew : MonoBehaviour
     }
 
     // -------------------------------------------------------
-    // Buton Handler'lar
+    // Buton Handler'larï¿½
     // -------------------------------------------------------
 
     private void OnHostClicked()
@@ -433,7 +433,7 @@ public class LobbyUINew : MonoBehaviour
     private void OnStartGameClicked()
     {
         if (!NetworkServer.active) return;
-        Debug.Log("[LobbyUI] Oyun balatlyor...");
+        Debug.Log("[LobbyUI] Oyun baï¿½latï¿½lï¿½yor...");
         string gameScene = GameNetworkManager.Instance != null ? GameNetworkManager.Instance.GameSceneName : "GameScene";
         if (string.IsNullOrEmpty(gameScene)) gameScene = "GameScene";
         Debug.Log($"[LobbyUI] Oyun baslatiliyor: {gameScene}");
@@ -455,14 +455,14 @@ public class LobbyUINew : MonoBehaviour
         if (copyButtonText)
         {
             string orig = copyButtonText.text;
-            copyButtonText.text = "KOPYALAND!";
+            copyButtonText.text = "KOPYALANDï¿½!";
             yield return new WaitForSeconds(1.5f);
             copyButtonText.text = orig;
         }
     }
 
     // -------------------------------------------------------
-    // Texture Dnm
+    // Texture Dï¿½nï¿½ï¿½ï¿½mï¿½
     // -------------------------------------------------------
 
     private Texture2D ConvertToTexture2D(Steamworks.Data.Image image)

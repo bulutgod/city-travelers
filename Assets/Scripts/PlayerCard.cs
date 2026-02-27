@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Eski lobi arayüzü için oyuncu kart? bile?eni.
+/// Eski lobi arayï¿½zï¿½ iï¿½in oyuncu kart? bile?eni.
 /// `LobbyUI` taraf?ndan kullan?l?r.
 /// </summary>
 public class PlayerCard : MonoBehaviour
@@ -78,7 +78,7 @@ public class PlayerCard : MonoBehaviour
     }
 
     /// <summary>
-    /// Kart? bo? slot görünümüne getirir.
+    /// Kart? bo? slot gï¿½rï¿½nï¿½mï¿½ne getirir.
     /// </summary>
     public void SetEmpty(int index)
     {
