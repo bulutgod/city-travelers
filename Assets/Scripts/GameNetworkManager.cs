@@ -17,6 +17,7 @@ public class GameNetworkManager : NetworkManager
     [SerializeField] float reconnectGraceSeconds = 180f;
 
     private readonly List<PlayerObject> _connectedPlayers = new List<PlayerObject>();
+    private readonly List<PlayerObject> _botPlayers = new List<PlayerObject>();
     private readonly Dictionary<ulong, PersistedPlayerState> _disconnectedStates = new Dictionary<ulong, PersistedPlayerState>();
     private readonly HashSet<ulong> _allowedPlayerSteamIds = new HashSet<ulong>();
     private readonly HashSet<ulong> _voluntaryLeaveSteamIds = new HashSet<ulong>();
@@ -29,6 +30,7 @@ public class GameNetworkManager : NetworkManager
         public int currentSpaceIndex;
         public int selectedCharacterIndex;
         public int selectedDiceIndex;
+        public int money;
         public float disconnectedAt;
         public string steamName;
     }
@@ -56,21 +58,80 @@ public class GameNetworkManager : NetworkManager
 
     public override void OnClientConnect()
     {
-        base.OnClientConnect();
+        // Sadece RECONNECT (sunucu GameScene'de) icin Ready() ertele - SceneMessage gelecek, sahne yuklenince
+        // OnClientSceneChanged'da Ready() cagrilacak. Normal lobby join'de (sunucu SampleScene'de) hemen Ready() + AddPlayer.
+        bool isReconnectToGame = SteamLobbyManager.Instance != null && SteamLobbyManager.Instance.IsReconnectingToGame;
+        string lobbyScene = string.IsNullOrEmpty(offlineScene) ? fallbackLobbySceneName : offlineScene;
+        bool inLobbyScene = !string.IsNullOrEmpty(lobbyScene) && SceneManager.GetActiveScene().name == lobbyScene;
+        bool isClientOnly = NetworkClient.active && !NetworkServer.active;
 
-        
-        if (!NetworkClient.ready)
+        if (inLobbyScene && isClientOnly && isReconnectToGame)
         {
-            NetworkClient.Ready();
+            Debug.Log("[Network] Sunucuya baglandi. GameScene yukleniyor...");
+            StartCoroutine(ReconnectSceneFallback());
+        }
+        else
+        {
+            base.OnClientConnect();
+            if (!NetworkClient.ready) NetworkClient.Ready();
         }
 
-        Debug.Log("[Network] Sunucuya bağlandı.");
         LobbyUINew.NotifyLobbyJoined();
     }
+
+    private System.Collections.IEnumerator ReconnectSceneFallback()
+    {
+        string lobbyScene = string.IsNullOrEmpty(offlineScene) ? fallbackLobbySceneName : offlineScene;
+        string gameScene = !string.IsNullOrEmpty(gameSceneName) ? gameSceneName : "GameScene";
+        float timeout = Time.realtimeSinceStartup + 2.5f;
+
+        while (Time.realtimeSinceStartup < timeout && NetworkClient.active)
+        {
+            string active = SceneManager.GetActiveScene().name;
+            if (active == gameScene)
+                yield break;
+            yield return null;
+        }
+
+        if (!NetworkClient.active) yield break;
+
+        string stillActive = SceneManager.GetActiveScene().name;
+        if (stillActive == lobbyScene)
+        {
+            Debug.Log("[Network] SceneMessage gelmedi veya sahne yuklenmedi. Manuel GameScene yukleniyor...");
+            yield return SceneManager.LoadSceneAsync(gameScene);
+            if (NetworkClient.connection != null && NetworkClient.connection.isAuthenticated)
+            {
+                if (!NetworkClient.ready) NetworkClient.Ready();
+                if (autoCreatePlayer && NetworkClient.localPlayer == null)
+                    NetworkClient.AddPlayer();
+            }
+            if (SteamLobbyManager.Instance != null)
+                SteamLobbyManager.Instance.ClearReconnectFlag();
+        }
+    }
+
+    public override void OnClientSceneChanged()
+    {
+        base.OnClientSceneChanged();
+        // Reconnect basarili - GameScene yuklendi, flag temizle
+        if (SteamLobbyManager.Instance != null && SteamLobbyManager.Instance.IsReconnectingToGame)
+        {
+            string active = SceneManager.GetActiveScene().name;
+            string gameScene = !string.IsNullOrEmpty(gameSceneName) ? gameSceneName : "GameScene";
+            if (active == gameScene)
+                SteamLobbyManager.Instance.ClearReconnectFlag();
+        }
+    }
+
     public override void OnClientDisconnect()
     {
         try { base.OnClientDisconnect(); } catch (System.Exception ex) { Debug.LogWarning("[Network] OnClientDisconnect base: " + ex.Message); }
         Debug.Log("[Network] Baglanti kesildi.");
+
+        // Reconnect denemesi basarisiz (lobi kapali, host yok vb.) - 3 dk cooldown
+        if (SteamLobbyManager.Instance != null && SteamLobbyManager.Instance.IsReconnectingToGame)
+            SteamLobbyManager.Instance.NotifyReconnectFailed();
 
         bool isInGameScene = false;
         try
@@ -168,6 +229,8 @@ public class GameNetworkManager : NetworkManager
         bool hasRestoredState2 = incomingSteamId != 0 &&
                                 _disconnectedStates.TryGetValue(incomingSteamId, out restored);
 
+        var bot = hasRestoredState2 ? GetBotByIndex(restored.playerIndex) : null;
+
         GameObject playerGo = Instantiate(playerPrefab);
         NetworkServer.AddPlayerForConnection(conn, playerGo);
 
@@ -176,17 +239,37 @@ public class GameNetworkManager : NetworkManager
         {
             if (hasRestoredState2)
             {
-                // Oyuncu geri geldiyse ayni slota ve ayni tahta pozisyonuna donsun.
                 int restoredIndex = IsIndexInUse(restored.playerIndex) ? GetNextPlayerIndex() : restored.playerIndex;
                 player.playerIndex = restoredIndex;
-                player.currentSpaceIndex = restored.currentSpaceIndex;
-                player.selectedCharacterIndex = restored.selectedCharacterIndex;
-                player.selectedDiceIndex = restored.selectedDiceIndex;
+                if (bot != null)
+                {
+                    player.currentSpaceIndex = bot.currentSpaceIndex;
+                    player.selectedCharacterIndex = bot.selectedCharacterIndex;
+                    player.selectedDiceIndex = bot.selectedDiceIndex;
+                    player.money = bot.money;
+                    Debug.Log($"[Network] Reconnect restore BOT state -> Space:{bot.currentSpaceIndex} Money:{bot.money}");
+                }
+                else
+                {
+                    player.currentSpaceIndex = restored.currentSpaceIndex;
+                    player.selectedCharacterIndex = restored.selectedCharacterIndex;
+                    player.selectedDiceIndex = restored.selectedDiceIndex;
+                    player.money = restored.money;
+                }
                 if (!string.IsNullOrWhiteSpace(restored.steamName))
                     player.steamName = restored.steamName;
+                if (incomingSteamId != 0)
+                    player.steamId = incomingSteamId;
                 _disconnectedStates.Remove(incomingSteamId);
 
-                Debug.Log($"[Network] Reconnect restore -> SteamId:{incomingSteamId} Index:{player.playerIndex} Space:{player.currentSpaceIndex}");
+                if (bot != null)
+                {
+                    NetworkServer.Destroy(bot.gameObject);
+                    _botPlayers.Remove(bot);
+                    Debug.Log($"[Network] Bot kaldirildi, oyuncu geri donuyor: P{restored.playerIndex}");
+                }
+
+                Debug.Log($"[Network] Reconnect restore -> SteamId:{incomingSteamId} Index:{player.playerIndex} Space:{player.currentSpaceIndex} Money:{player.money}");
             }
             else if (_migrationSnapshot != null && _migrationSnapshot.isValid)
             {
@@ -198,6 +281,7 @@ public class GameNetworkManager : NetworkManager
                     player.currentSpaceIndex = entry.currentSpaceIndex;
                     player.selectedCharacterIndex = entry.selectedCharacterIndex;
                     player.selectedDiceIndex = entry.selectedDiceIndex;
+                    player.money = entry.money;
                     if (!string.IsNullOrWhiteSpace(entry.steamName)) player.steamName = entry.steamName;
                     if (entry.steamId != 0) player.steamId = entry.steamId;
                     Debug.Log($"[Network] Migration restore host player -> Index:{player.playerIndex}");
@@ -245,16 +329,18 @@ public class GameNetworkManager : NetworkManager
                             currentSpaceIndex = player.currentSpaceIndex,
                             selectedCharacterIndex = player.selectedCharacterIndex,
                             selectedDiceIndex = player.selectedDiceIndex,
+                            money = player.money,
                             disconnectedAt = Time.unscaledTime,
                             steamName = player.steamName
                         };
+                        StartCoroutine(SpawnBotAfterDisconnect(steamId, player));
                     }
 
                     _connectedPlayers.Remove(player);
                     Debug.Log($"[Network] Oyuncu ayrıldı ve listeden çıkarıldı. " +
                               $"Index: {player.playerIndex}" + (voluntary ? " (istemli)" : ""));
 
-                    if (NetworkServer.active && GameTurnManager.Instance != null)
+                    if (voluntary && NetworkServer.active && GameTurnManager.Instance != null)
                         GameTurnManager.Instance.ServerHandlePlayerDisconnected(player.playerIndex);
                 }
             }
@@ -278,10 +364,38 @@ public class GameNetworkManager : NetworkManager
     {
         base.OnStopHost();
         _connectedPlayers.Clear();
+        _botPlayers.Clear();
         _disconnectedStates.Clear();
         _allowedPlayerSteamIds.Clear();
         _voluntaryLeaveSteamIds.Clear();
         SteamLobbyManager.Instance?.LeaveLobby();
+    }
+
+    [Server]
+    private System.Collections.IEnumerator SpawnBotAfterDisconnect(ulong steamId, PlayerObject oldPlayer)
+    {
+        yield return null;
+        if (!_disconnectedStates.TryGetValue(steamId, out var state)) yield break;
+
+        var botGo = Instantiate(playerPrefab);
+        var bot = botGo.GetComponent<PlayerObject>();
+        if (bot == null) { Destroy(botGo); yield break; }
+
+        bot.isBot = true;
+        bot.playerIndex = state.playerIndex;
+        bot.steamName = state.steamName + " (Bot)";
+        bot.steamId = steamId;
+        bot.currentSpaceIndex = state.currentSpaceIndex;
+        bot.money = state.money;
+        bot.selectedCharacterIndex = state.selectedCharacterIndex;
+        bot.selectedDiceIndex = state.selectedDiceIndex;
+
+        NetworkServer.Spawn(botGo);
+        _botPlayers.Add(bot);
+        Debug.Log($"[Network] Bot spawn edildi: P{state.playerIndex} ({state.steamName})");
+
+        if (GameTurnManager.Instance != null)
+            GameTurnManager.Instance.ServerNotifyBotSpawned(bot);
     }
 
     public override void OnServerChangeScene(string newSceneName)
@@ -306,6 +420,23 @@ public class GameNetworkManager : NetworkManager
 
     public IReadOnlyList<PlayerObject> GetConnectedPlayers() => _connectedPlayers;
 
+    public IReadOnlyList<PlayerObject> GetBotPlayers() => _botPlayers;
+
+    public PlayerObject GetBotByIndex(int playerIndex)
+    {
+        foreach (var b in _botPlayers)
+            if (b != null && b.playerIndex == playerIndex) return b;
+        return null;
+    }
+
+    public bool IsBot(int playerIndex) => GetBotByIndex(playerIndex) != null;
+
+    public System.Collections.Generic.IEnumerable<PlayerObject> GetAllActivePlayers()
+    {
+        foreach (var p in _connectedPlayers) if (p != null) yield return p;
+        foreach (var p in _botPlayers) if (p != null) yield return p;
+    }
+
     private int GetNextPlayerIndex()
     {
         int idx = 0;
@@ -321,6 +452,11 @@ public class GameNetworkManager : NetworkManager
         for (int i = 0; i < _connectedPlayers.Count; i++)
         {
             var p = _connectedPlayers[i];
+            if (p != null && p.playerIndex == idx) return true;
+        }
+        for (int i = 0; i < _botPlayers.Count; i++)
+        {
+            var p = _botPlayers[i];
             if (p != null && p.playerIndex == idx) return true;
         }
 
@@ -373,6 +509,7 @@ public class GameNetworkManager : NetworkManager
                 currentSpaceIndex = entry.currentSpaceIndex,
                 selectedCharacterIndex = entry.selectedCharacterIndex,
                 selectedDiceIndex = entry.selectedDiceIndex,
+                money = entry.money,
                 disconnectedAt = Time.unscaledTime,
                 steamName = entry.steamName ?? ""
             };

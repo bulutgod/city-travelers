@@ -25,6 +25,11 @@ public class PlayerObject : NetworkBehaviour
     [SyncVar(hook = nameof(OnSpaceIndexChanged))]
     public int currentSpaceIndex = 0;
 
+    [SyncVar(hook = nameof(OnMoneyChanged))]
+    public int money = 1500;
+
+    [SyncVar] public bool isBot = false;
+
     private void OnCharacterIndexChanged(int oldVal, int newVal)
     {
         LobbyUINew.Instance?.RefreshLobby();
@@ -40,6 +45,11 @@ public class PlayerObject : NetworkBehaviour
         // Oyun sahnesinde piyon hareketi bu degere baglanacak.
     }
 
+    private void OnMoneyChanged(int oldVal, int newVal)
+    {
+        // HUD para gosterimi bu degere baglanacak.
+    }
+
     [Command]
     public void CmdSetDiceIndex(int index)
     {
@@ -51,6 +61,20 @@ public class PlayerObject : NetworkBehaviour
     {
         if (GameTurnManager.Instance == null) return;
         GameTurnManager.Instance.ServerTryRoll(this);
+    }
+
+    [Command]
+    public void CmdBuyProperty(int spaceIndex)
+    {
+        if (PropertyManager.Instance != null)
+            PropertyManager.Instance.ServerTryBuy(this, spaceIndex);
+    }
+
+    [Command]
+    public void CmdDeclineBuy(int spaceIndex)
+    {
+        if (PropertyManager.Instance != null)
+            PropertyManager.Instance.ServerDeclineBuy(this, spaceIndex);
     }
 
     /// <summary>
@@ -76,6 +100,8 @@ public class PlayerObject : NetworkBehaviour
 
     public override void OnStartServer()
     {
+        if (isBot) return;
+
         // Host kontrolü: connectionToClient null veya address "localhost" ise host'uz
         if (connectionToClient == null ||
             string.IsNullOrEmpty(connectionToClient.address) ||
@@ -125,6 +151,8 @@ public class PlayerObject : NetworkBehaviour
         gameObject.name = $"Player_{playerIndex}_{netId}";
         Debug.Log($"[Player] Client başladı. " +
                   $"NetId:{netId} Index:{playerIndex} Name:{steamName}");
+
+        LobbyUINew.Instance?.RefreshLobby();
 
         if (steamId != 0)
             StartCoroutine(FetchAvatar(steamId));

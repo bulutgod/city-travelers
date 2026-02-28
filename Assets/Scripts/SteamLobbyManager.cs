@@ -26,6 +26,8 @@ public class SteamLobbyManager : MonoBehaviour
 
     // SampleScene'den (oyun yeniden acildiginda) kullanilir
     private bool _reconnectToLastLobbyRequested = false;
+    /// <summary>Reconnect akisinda miyiz (sunucu GameScene'de, Ready sahne yuklenince cagrilacak).</summary>
+    public bool IsReconnectingToGame => _reconnectToLastLobbyRequested;
     private bool _leaveAfterReconnectRequested = false;
 
     #region Unity Lifecycle
@@ -168,6 +170,28 @@ public class SteamLobbyManager : MonoBehaviour
         return PlayerPrefs.HasKey(PrefLastLobbyId) && ulong.TryParse(PlayerPrefs.GetString(PrefLastLobbyId, "0"), out ulong id) && id != 0;
     }
 
+    /// <summary>Reconnect basarili oldugunda GameNetworkManager tarafindan cagrilir.</summary>
+    public static float ReconnectedAtTime { get; private set; } = -1f;
+
+    public void ClearReconnectFlag()
+    {
+        if (_reconnectToLastLobbyRequested)
+            ReconnectedAtTime = Time.realtimeSinceStartup;
+        _reconnectToLastLobbyRequested = false;
+    }
+
+    private float _reconnectBlockedUntil;
+
+    /// <summary>Reconnect basarisiz (timeout, baglanti koptu). 3 dk boyunca Reconnect paneli gizlenir.</summary>
+    public void NotifyReconnectFailed()
+    {
+        _reconnectBlockedUntil = Time.realtimeSinceStartup + 180f;
+        ClearReconnectFlag();
+    }
+
+    /// <summary>Reconnect basarisiz oldu, su an cooldown icindeyiz.</summary>
+    public bool IsReconnectBlocked => Time.realtimeSinceStartup < _reconnectBlockedUntil;
+
     public void TryReconnectToLastLobby()
     {
         if (!SteamClient.IsValid) return;
@@ -191,9 +215,8 @@ public class SteamLobbyManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Oyunu yeniden actiktan sonra "Leave" ile bu oyundan cikmak:
-    /// Lobiye katil -> host'a baglan -> CmdVoluntaryLeave gonder -> cik.
-    /// Boylece sunucu state'i hemen siler ve diger oyuncular lobby listesinde degisikligi gorur.
+    /// Ana menude "Leave" ile reconnect secenegini kaldir.
+    /// Bagli degilsek sadece prefs temizlenir. Bagliysak oyun icinden RequestVoluntaryLeave kullanilmalidir.
     /// </summary>
     public void LeaveLastGamePermanently()
     {
@@ -209,12 +232,9 @@ public class SteamLobbyManager : MonoBehaviour
             return;
         }
 
-        _reconnectToLastLobbyRequested = true;
-        _leaveAfterReconnectRequested = true;
-
-        ulong lobbyId = ulong.Parse(PlayerPrefs.GetString(PrefLastLobbyId, "0"));
-        Debug.Log("[Steam] Bu oyundan cikis icin lobiye katiliniyor: " + lobbyId);
-        JoinLobby(new SteamId { Value = lobbyId });
+        // Bagli degiliz - sadece prefs temizle. Lobiye katilip CmdVoluntaryLeave gerekmez.
+        Debug.Log("[Steam] Reconnect kaydi temizlendi.");
+        ClearLastLobbyPrefs();
     }
 
     #endregion
@@ -274,29 +294,57 @@ public class SteamLobbyManager : MonoBehaviour
             LobbyUINew.NotifyLobbyJoined();
             return;
         }
-        if (lobby.IsOwnedBy(SteamClient.SteamId))
-        {
-            LobbyUINew.NotifyLobbyJoined();
-            return;
-        }
 
+        // Migration-aware: Steam lobby owner != Mirror host. HostSteamId metadata karar verir.
+        // Eski host reconnect ederse lobby.IsOwnedBy true olur ama HostSteamId yeni host'tir -> StartClient gerekli.
         string hostSteamIdStr = lobby.GetData("HostSteamId");
-
         if (string.IsNullOrEmpty(hostSteamIdStr))
         {
-            Debug.LogError("[Steam] HostSteamId metadata's� okunamad�!");
+            Debug.LogError("[Steam] HostSteamId metadata'si okunamadi!");
             return;
         }
 
-        GameNetworkManager.Instance.networkAddress = hostSteamIdStr;
-        GameNetworkManager.Instance.StartClient();
-
-        Debug.Log($"[Network] Client ba�lat�ld�. Host: {hostSteamIdStr}");
-
-        // SampleScene'den "Leave" istendiyse baglanir baglanmaz istegi gonderip cik.
-        if (_reconnectToLastLobbyRequested && _leaveAfterReconnectRequested)
+        // Reconnect: Eski host geri donuyorsa metadata bazen guncel olmayabilir (HostSteamId hala kendi id'si).
+        // Bu durumda Steam lobby owner = yeni host, onu kullan.
+        if (_reconnectToLastLobbyRequested && hostSteamIdStr == SteamClient.SteamId.ToString())
         {
-            StartCoroutine(LeaveAfterReconnectFlow());
+            ulong ownerId = lobby.Owner.Id.Value;
+            if (ownerId != 0 && ownerId != SteamClient.SteamId.Value)
+            {
+                hostSteamIdStr = ownerId.ToString();
+                Debug.Log($"[Steam] Reconnect: HostSteamId metadata guncel degil, lobby owner kullanildi: {hostSteamIdStr}");
+            }
+        }
+
+        bool weAreMirrorHost = hostSteamIdStr == SteamClient.SteamId.ToString();
+
+        // LeaveLastGamePermanently: Lobi bos (host biziz), oyun bitti - StartHost yapma, sadece cik
+        if (_leaveAfterReconnectRequested && weAreMirrorHost)
+        {
+            Debug.Log("[Steam] Lobi bos/oyun bitti. Prefs temizleniyor.");
+            _reconnectToLastLobbyRequested = false;
+            _leaveAfterReconnectRequested = false;
+            ClearLastLobbyPrefs();
+            LeaveLobby();
+            return;
+        }
+
+        if (weAreMirrorHost)
+        {
+            // Metadata'da biz host'uz - StartHost (yeni host migration sonrasi veya nadir edge case)
+            GameNetworkManager.Instance.StartHost();
+            LobbyUINew.NotifyLobbyJoined();
+            StartCoroutine(NotifyLobbyUIAgainAfterDelay());
+        }
+        else
+        {
+            // Metadata'da baska biri host - StartClient (normal join veya eski host reconnect)
+            GameNetworkManager.Instance.networkAddress = hostSteamIdStr;
+            GameNetworkManager.Instance.StartClient();
+            Debug.Log($"[Network] Client baslatildi. Host: {hostSteamIdStr}");
+
+            if (_reconnectToLastLobbyRequested && _leaveAfterReconnectRequested)
+                StartCoroutine(LeaveAfterReconnectFlow());
         }
     }
 

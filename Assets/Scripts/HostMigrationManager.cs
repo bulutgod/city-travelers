@@ -14,7 +14,7 @@ public class HostMigrationManager : MonoBehaviour
     public static HostMigrationManager Instance { get; private set; }
 
     [Tooltip("Host koptuktan sonra migration denemeden önce beklenecek süre (sn).")]
-    [SerializeField] float migrationWaitSeconds = 5f;
+    [SerializeField] float migrationWaitSeconds = 2f;
 
     [Tooltip("Migration sırasında gösterilecek mesaj (opsiyonel UI).")]
     [SerializeField] string messageHostDisconnected = "Host baglantisi koptu. Yeni host bekleniyor...";
@@ -54,7 +54,8 @@ public class HostMigrationManager : MonoBehaviour
 
         try
         {
-            _savedSnapshot = GameStateSnapshot.Capture();
+            var props = PropertyManager.Instance?.spaceOwners;
+            _savedSnapshot = GameStateSnapshot.Capture(props);
             if (_savedSnapshot != null && !_savedSnapshot.isValid)
                 Debug.Log("[HostMigration] Snapshot alindi ama gecersiz (oyuncu yok). Yeni host yine de acilacak.");
         }

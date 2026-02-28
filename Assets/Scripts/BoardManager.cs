@@ -8,6 +8,7 @@ using UnityEngine;
 /// </summary>
 public class BoardManager : MonoBehaviour
 {
+    public static BoardManager Instance { get; private set; }
     public const int SpaceCount = 38;
 
     [Header("Tahta referansi")]
@@ -46,6 +47,9 @@ public class BoardManager : MonoBehaviour
 
     private void Awake()
     {
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        Instance = this;
+
         if (boardRoot != null && boardRoot.childCount >= SpaceCount)
         {
             _spaces = new Transform[SpaceCount];
@@ -178,6 +182,11 @@ public class BoardManager : MonoBehaviour
             idx++;
         }
         boardRoot = root.transform;
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
     }
 
     private Transform CreateSpace(Transform parent, float x, float y, float z, int index)

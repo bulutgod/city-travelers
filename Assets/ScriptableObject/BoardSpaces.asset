@@ -16,114 +16,193 @@ MonoBehaviour:
   - displayName: Start
     color: {r: 1, g: 0, b: 0, a: 1}
     spaceType: 1
+    purchasePrice: 0
+    rent: 0
+    taxAmount: 0
+    startBonus: 200
   - displayName: Granada
     color: {r: 0.9056604, g: 0.20932718, b: 0.90317076, a: 1}
     spaceType: 0
+    purchasePrice: 60
+    rent: 2
   - displayName: Sevilla
     color: {r: 0.90588236, g: 0.20784314, b: 0.9019608, a: 1}
     spaceType: 0
+    purchasePrice: 60
+    rent: 4
   - displayName: Madrid
     color: {r: 0.90588236, g: 0.20784314, b: 0.9019608, a: 1}
     spaceType: 0
-  - displayName: 
+    purchasePrice: 100
+    rent: 6
+  - displayName: sans
     color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+    spaceType: 2
+    purchasePrice: 0
+    rent: 0
+  - displayName: hong kong
+    color: {r: 0.745283, g: 0.65016824, b: 0.24959952, a: 1}
     spaceType: 0
-  - displayName: 
+    purchasePrice: 60
+    rent: 4
+  - displayName: pekin
+    color: {r: 0.74509805, g: 0.6509804, b: 0.2509804, a: 1}
+    spaceType: 0
+    purchasePrice: 80
+    rent: 7
+  - displayName: "\u015Fangay"
+    color: {r: 0.74509805, g: 0.6509804, b: 0.2509804, a: 1}
+    spaceType: 0
+    purchasePrice: 60
+    rent: 4
+  - displayName: roma
+    color: {r: 0.6792453, g: 0.1505874, b: 0.6033439, a: 1}
+    spaceType: 0
+    purchasePrice: 100
+    rent: 6
+  - displayName: floransa
+    color: {r: 0.68235296, g: 0.15294118, b: 0.6039216, a: 1}
+    spaceType: 0
+    purchasePrice: 80
+    rent: 10
+  - displayName: venedik
+    color: {r: 0.68235296, g: 0.15294118, b: 0.6039216, a: 1}
+    spaceType: 0
+    purchasePrice: 80
+    rent: 4
+  - displayName: istanbul
+    color: {r: 0.9245283, g: 0.039248828, b: 0.039248828, a: 1}
+    spaceType: 0
+    purchasePrice: 100
+    rent: 5
+  - displayName: ankara
+    color: {r: 0.9254902, g: 0.043137256, b: 0.043137256, a: 1}
+    spaceType: 0
+    purchasePrice: 80
+    rent: 4
+  - displayName: izmir
+    color: {r: 0.9254902, g: 0.043137256, b: 0.043137256, a: 1}
+    spaceType: 0
+    purchasePrice: 90
+    rent: 6
+  - displayName: "var\u015Fova"
+    color: {r: 0.12646852, g: 0.1583888, b: 0.9245283, a: 1}
+    spaceType: 0
+    purchasePrice: 80
+    rent: 7
+  - displayName: moskova
+    color: {r: 0.12941177, g: 0.16078432, b: 0.9254902, a: 1}
+    spaceType: 0
+    purchasePrice: 70
+    rent: 4
+  - displayName: volgograd
+    color: {r: 0.12941177, g: 0.16078432, b: 0.9254902, a: 1}
+    spaceType: 0
+    purchasePrice: 40
+    rent: 2
+  - displayName: las vegas
+    color: {r: 0.10881342, g: 0.9528302, b: 0.03146139, a: 1}
+    spaceType: 0
+    purchasePrice: 100
+    rent: 8
+  - displayName: new york
+    color: {r: 0.10980392, g: 0.9529412, b: 0.03529412, a: 1}
+    spaceType: 0
+    purchasePrice: 80
+    rent: 4
+  - displayName: "\u015Fikago"
+    color: {r: 0.10980392, g: 0.9529412, b: 0.03529412, a: 1}
+    spaceType: 0
+    purchasePrice: 120
+    rent: 10
+  - displayName: londra
+    color: {r: 1, g: 0.5615011, b: 0, a: 1}
+    spaceType: 0
+    purchasePrice: 120
+    rent: 10
+  - displayName: manchester
+    color: {r: 1, g: 0.5647059, b: 0, a: 1}
+    spaceType: 0
+    purchasePrice: 90
+    rent: 5
+  - displayName: brentford
+    color: {r: 1, g: 0.5647059, b: 0, a: 1}
+    spaceType: 0
+    purchasePrice: 40
+    rent: 2
+  - displayName: paris
+    color: {r: 0.69239354, g: 0.9433962, b: 0, a: 1}
+    spaceType: 0
+    purchasePrice: 70
+    rent: 4
+  - displayName: lyon
+    color: {r: 0.69411767, g: 0.94509804, b: 0, a: 1}
+    spaceType: 0
+    purchasePrice: 0
+    rent: 0
+  - displayName: marsilya
+    color: {r: 0.69411767, g: 0.94509804, b: 0, a: 1}
+    spaceType: 0
+    purchasePrice: 0
+    rent: 0
+  - displayName: "bar\xE7a"
+    color: {r: 0.4811321, g: 0.4516287, b: 0.4516287, a: 1}
+    spaceType: 0
+    purchasePrice: 80
+    rent: 8
+  - displayName: madird
+    color: {r: 0.48235294, g: 0.45490196, b: 0.45490196, a: 1}
+    spaceType: 0
+    purchasePrice: 100
+    rent: 10
+  - displayName: "k\xF6ln"
+    color: {r: 0.44705883, g: 0.21568628, b: 0, a: 1}
+    spaceType: 0
+    purchasePrice: 60
+    rent: 6
+  - displayName: dortmund
+    color: {r: 0.44705883, g: 0.21568628, b: 0, a: 1}
+    spaceType: 0
+    purchasePrice: 80
+    rent: 8
+  - displayName: "m\xFCnih"
+    color: {r: 0.44705883, g: 0.21568628, b: 0, a: 1}
+    spaceType: 0
+    purchasePrice: 90
+    rent: 9
+  - displayName: "br\xFCksel"
+    color: {r: 0, g: 0.7500738, b: 0.9528302, a: 1}
+    spaceType: 0
+    purchasePrice: 80
+    rent: 8
+  - displayName: gent
+    color: {r: 0, g: 0.7529412, b: 0.9529412, a: 1}
+    spaceType: 0
+    purchasePrice: 60
+    rent: 6
+  - displayName: genk
+    color: {r: 0, g: 0.7529412, b: 0.9529412, a: 1}
+    spaceType: 0
+    purchasePrice: 40
+    rent: 4
+  - displayName: vergi
     color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+    spaceType: 4
+    purchasePrice: 0
+    rent: 0
+    taxAmount: 200
+  - displayName: osaka
+    color: {r: 0.9372549, g: 0, b: 0.8901961, a: 1}
     spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+    purchasePrice: 80
+    rent: 8
+  - displayName: tokyo
+    color: {r: 0.9372549, g: 0, b: 0.8901961, a: 1}
     spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+    purchasePrice: 60
+    rent: 6
+  - displayName: yokohama
+    color: {r: 0.9372549, g: 0, b: 0.8901961, a: 1}
     spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
-  - displayName: 
-    color: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-    spaceType: 0
+    purchasePrice: 40
+    rent: 4

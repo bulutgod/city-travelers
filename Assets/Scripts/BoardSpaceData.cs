@@ -15,6 +15,18 @@ public class SpaceInfo
 
     public SpaceType spaceType = SpaceType.Normal;
 
+    [Tooltip("Satın alma fiyatı (Normal tip için). 0 = satın alınamaz.")]
+    public int purchasePrice = 0;
+
+    [Tooltip("Kira (Normal tip için, sahibi varsa ödenir).")]
+    public int rent = 0;
+
+    [Tooltip("Vergi miktarı (Tax tipi için).")]
+    public int taxAmount = 0;
+
+    [Tooltip("Start'tan geçişte verilen bonus.")]
+    public int startBonus = 0;
+
     public enum SpaceType
     {
         Normal,
@@ -28,6 +40,11 @@ public class SpaceInfo
         Railway,
         Utility
     }
+
+    /// <summary>
+    /// Satın alınabilir mülk mü? (Normal tip + fiyat > 0)
+    /// </summary>
+    public bool IsPurchasable => spaceType == SpaceType.Normal && purchasePrice > 0;
 }
 
 /// <summary>

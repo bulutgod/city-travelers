@@ -27,16 +27,26 @@ public class GameStateSnapshot
         public int currentSpaceIndex;
         public int selectedCharacterIndex;
         public int selectedDiceIndex;
+        public int money;
+    }
+
+    [Serializable]
+    public class PropertyEntry
+    {
+        public int spaceIndex;
+        public int ownerPlayerIndex;
     }
 
     public List<PlayerEntry> players = new List<PlayerEntry>();
+    public List<PropertyEntry> properties = new List<PropertyEntry>();
 
     public bool isValid => players != null && players.Count > 0;
 
     /// <summary>
     /// Client'ta cagir: mevcut GameTurnManager ve PlayerObject'lardan snapshot al.
+    /// propertyOwnership: spaceIndex -> ownerPlayerIndex (PropertyManager.Instance.spaceOwners)
     /// </summary>
-    public static GameStateSnapshot Capture()
+    public static GameStateSnapshot Capture(IEnumerable<KeyValuePair<int, int>> propertyOwnership = null)
     {
         var snap = new GameStateSnapshot();
         if (GameTurnManager.Instance != null)
@@ -62,10 +72,20 @@ public class GameStateSnapshot
                 steamName = po.steamName ?? "",
                 currentSpaceIndex = po.currentSpaceIndex,
                 selectedCharacterIndex = po.selectedCharacterIndex,
-                selectedDiceIndex = po.selectedDiceIndex
+                selectedDiceIndex = po.selectedDiceIndex,
+                money = po.money
             });
         }
         snap.players.Sort((a, b) => a.playerIndex.CompareTo(b.playerIndex));
+
+        snap.properties.Clear();
+        if (propertyOwnership != null)
+        {
+            foreach (var kv in propertyOwnership)
+                if (kv.Value >= 0)
+                    snap.properties.Add(new PropertyEntry { spaceIndex = kv.Key, ownerPlayerIndex = kv.Value });
+        }
+
         return snap;
     }
 }
