@@ -19,8 +19,17 @@ public class PropertyManager : NetworkBehaviour
     /// </summary>
     public readonly SyncDictionary<int, int> spaceOwners = new SyncDictionary<int, int>();
 
+    /// <summary>
+    /// spaceIndex -> ev sayısı (0-4). Sadece satın alınabilir mülklerde kullanılır.
+    /// </summary>
+    public readonly SyncDictionary<int, int> spaceHouseCounts = new SyncDictionary<int, int>();
+
     [SyncVar] public int pendingSpaceIndex = -1;
     [SyncVar] public int pendingPlayerIndex = -1;
+    /// <summary>
+    /// true = ev dikme teklifi (kendi mülküne indin), false = satın alma teklifi.
+    /// </summary>
+    [SyncVar] public bool pendingIsBuild = false;
 
     private void Awake()
     {
@@ -74,6 +83,26 @@ public class PropertyManager : NetworkBehaviour
         return owner != landingPlayerIndex;
     }
 
+    /// <summary>
+    /// Mülkteki ev sayısı (0-4).
+    /// </summary>
+    public int GetHouseCount(int spaceIndex)
+    {
+        if (spaceHouseCounts.TryGetValue(spaceIndex, out int count))
+            return Mathf.Clamp(count, 0, 4);
+        return 0;
+    }
+
+    /// <summary>
+    /// Ev sayısına göre kira: baseRent * 2^houseCount (0 ev=1x, 1 ev=2x, 2 ev=4x, 3 ev=8x, 4 ev=16x).
+    /// </summary>
+    public int GetRentWithHouses(int spaceIndex, int baseRent)
+    {
+        int houses = GetHouseCount(spaceIndex);
+        int multiplier = 1 << houses; // 2^houses
+        return baseRent * multiplier;
+    }
+
     private SpaceInfo GetSpaceInfo(int spaceIndex)
     {
         return boardManager != null ? boardManager.GetSpaceInfo(spaceIndex) : null;
@@ -119,6 +148,7 @@ public class PropertyManager : NetworkBehaviour
             return;
         pendingSpaceIndex = -1;
         pendingPlayerIndex = -1;
+        pendingIsBuild = false;
         AdvanceTurnAfterAction(player);
     }
 
@@ -127,12 +157,20 @@ public class PropertyManager : NetworkBehaviour
     {
         if (snap == null || snap.properties == null) return;
         spaceOwners.Clear();
+        spaceHouseCounts.Clear();
         foreach (var p in snap.properties)
+        {
             if (p.ownerPlayerIndex >= 0)
+            {
                 spaceOwners[p.spaceIndex] = p.ownerPlayerIndex;
+                if (p.houseCount > 0)
+                    spaceHouseCounts[p.spaceIndex] = Mathf.Clamp(p.houseCount, 0, 4);
+            }
+        }
         pendingSpaceIndex = -1;
         pendingPlayerIndex = -1;
-        Debug.Log($"[Property] Restored {spaceOwners.Count} properties from snapshot.");
+        pendingIsBuild = false;
+        Debug.Log($"[Property] Restored {spaceOwners.Count} properties (with houses) from snapshot.");
     }
 
     [Server]
@@ -140,6 +178,75 @@ public class PropertyManager : NetworkBehaviour
     {
         pendingSpaceIndex = spaceIndex;
         pendingPlayerIndex = playerIndex;
+        pendingIsBuild = false;
+    }
+
+    [Server]
+    public void ServerSetPendingBuild(int spaceIndex, int playerIndex)
+    {
+        pendingSpaceIndex = spaceIndex;
+        pendingPlayerIndex = playerIndex;
+        pendingIsBuild = true;
+    }
+
+    /// <summary>
+    /// Ev dik: Boş mülkte count 1=yer satın al, 2-4=yer+(count-1) ev. Sahibiyse count ev dik.
+    /// count 0 = geç (sadece ServerDeclineBuy ile).
+    /// </summary>
+    [Server]
+    public void ServerTryBuyOrBuild(PlayerObject player, int spaceIndex, int count)
+    {
+        if (player == null) return;
+        if (pendingSpaceIndex != spaceIndex || pendingPlayerIndex != player.playerIndex || !pendingIsBuild)
+            return;
+
+        var info = GetSpaceInfo(spaceIndex);
+        if (info == null || !info.IsPurchasable) return;
+
+        int owner = GetOwner(spaceIndex);
+        if (owner < 0)
+        {
+            if (count < 1) { FinishPendingAndAdvance(player); return; }
+            int housePrice = info.housePrice > 0 ? info.housePrice : (info.purchasePrice / 2);
+            int maxSeviye = 4;
+            if (!player.hasPassedStart) maxSeviye = 3;
+            count = Mathf.Clamp(count, 1, maxSeviye);
+            int evSayisi = count - 1;
+            int evCost = evSayisi > 0 ? housePrice * evSayisi : 0;
+            if (player.money < info.purchasePrice + evCost) { FinishPendingAndAdvance(player); return; }
+
+            player.money -= info.purchasePrice + evCost;
+            spaceOwners[spaceIndex] = player.playerIndex;
+            if (evSayisi > 0) spaceHouseCounts[spaceIndex] = evSayisi;
+            pendingSpaceIndex = -1;
+            pendingPlayerIndex = -1;
+            pendingIsBuild = false;
+            Debug.Log($"[Property] P{player.playerIndex} bought space {spaceIndex} (seviye {count}: yer + {evSayisi} ev)");
+            AdvanceTurnAfterAction(player);
+        }
+        else if (owner == player.playerIndex)
+        {
+            int currentHouses = GetHouseCount(spaceIndex);
+            int maxCanBuild = 4 - currentHouses;
+            if (maxCanBuild <= 0 || count <= 0) { FinishPendingAndAdvance(player); return; }
+            if (currentHouses == 3 && !player.hasPassedStart) maxCanBuild = 0;
+            else if (!player.hasPassedStart) maxCanBuild = Mathf.Min(maxCanBuild, 3);
+            count = Mathf.Clamp(count, 1, maxCanBuild);
+            int housePrice = info.housePrice > 0 ? info.housePrice : (info.purchasePrice / 2);
+            if (housePrice <= 0 || player.money < housePrice * count) { FinishPendingAndAdvance(player); return; }
+
+            player.money -= housePrice * count;
+            spaceHouseCounts[spaceIndex] = currentHouses + count;
+            pendingSpaceIndex = -1;
+            pendingPlayerIndex = -1;
+            pendingIsBuild = false;
+            Debug.Log($"[Property] P{player.playerIndex} built {count} house(s) on space {spaceIndex}");
+            AdvanceTurnAfterAction(player);
+        }
+        else
+        {
+            FinishPendingAndAdvance(player);
+        }
     }
 
     [Server]
@@ -156,6 +263,7 @@ public class PropertyManager : NetworkBehaviour
     {
         pendingSpaceIndex = -1;
         pendingPlayerIndex = -1;
+        pendingIsBuild = false;
         AdvanceTurnAfterAction(player);
     }
 

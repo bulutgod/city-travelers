@@ -9,7 +9,10 @@ using UnityEngine;
 public class SimplePawnVisualizer : MonoBehaviour
 {
     [SerializeField] private BoardManager boardManager;
-    [SerializeField] private float pawnHeight = 0.85f;
+    [Tooltip("Piyonun kare uzerindeki yukseklik. Model kullanirken 0.4-0.7 arasi deneyin.")]
+    [SerializeField] private float pawnHeight = 0.5f;
+    [Tooltip("Ince ayar: ek yukseklik. Cok yukarida kalirsa negatif yap.")]
+    [SerializeField] private float pawnHeightOffset = 0f;
     [SerializeField] private float moveSpeed = 8f;
     [SerializeField] private float localYOffset = 0.02f;
     [SerializeField] private float bounceHeight = 0.25f;
@@ -122,7 +125,7 @@ public class SimplePawnVisualizer : MonoBehaviour
 
             Vector3 basePos = boardManager.GetSpacePosition(idx);
             Vector3 offset = PerPlayerOffset(view.Player.playerIndex);
-            float y = pawnHeight + (view.Player.isLocalPlayer ? localYOffset : 0f);
+            float y = pawnHeight + pawnHeightOffset + (view.Player.isLocalPlayer ? localYOffset : 0f);
             if (view.BounceTimer > 0f)
             {
                 float t = 1f - (view.BounceTimer / Mathf.Max(0.01f, bounceDuration));

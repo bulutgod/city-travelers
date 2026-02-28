@@ -119,6 +119,68 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1001 &398214998
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 525107023}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 4fc87a70530ea4a3c87ef3ae4a243370, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4fc87a70530ea4a3c87ef3ae4a243370, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4fc87a70530ea4a3c87ef3ae4a243370, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4fc87a70530ea4a3c87ef3ae4a243370, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4fc87a70530ea4a3c87ef3ae4a243370, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4fc87a70530ea4a3c87ef3ae4a243370, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4fc87a70530ea4a3c87ef3ae4a243370, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4fc87a70530ea4a3c87ef3ae4a243370, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4fc87a70530ea4a3c87ef3ae4a243370, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4fc87a70530ea4a3c87ef3ae4a243370, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 4fc87a70530ea4a3c87ef3ae4a243370, type: 3}
+      propertyPath: m_Name
+      value: TAHTAMONOPOLY
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 4fc87a70530ea4a3c87ef3ae4a243370, type: 3}
+--- !u!4 &398214999 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4fc87a70530ea4a3c87ef3ae4a243370, type: 3}
+  m_PrefabInstance: {fileID: 398214998}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &525107021
 GameObject:
   m_ObjectHideFlags: 0
@@ -148,14 +210,30 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6bda7c9f5be384046a0fe36052479d72, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BoardManager
-  boardRoot: {fileID: 0}
+  boardRoot: {fileID: -8679921383154817045, guid: 4fc87a70530ea4a3c87ef3ae4a243370, type: 3}
+  boardVisual: {fileID: 398214999}
+  centerChildIndex: 0
+  reverseSpaceOrder: 0
+  showLabelsWhenUsingModel: 1
+  useModelSpaceRotation: 1
+  labelYawOffset: 0
+  useSingleLabelRotation: 0
+  labelRotAll: 0
+  labelRotBottom: 270
+  labelRotRight: 180
+  labelRotTop: 270
+  labelRotLeft: 180
   boardSpaceData: {fileID: 11400000, guid: 8fd5e55240b7d54428a85ef8be2f986a, type: 2}
   tileSize: 1.8
   tileHeight: 0.3
   tileGap: 0.08
   showSpaceLabels: 1
-  labelHeight: 0.06
-  labelFontSize: 275
+  labelHeight: 0.12
+  labelFontSize: 52
+  labelScale: 0.16
+  labelColor: {r: 0, g: 0, b: 0, a: 1}
+  labelOutlineColor: {r: 0, g: 0, b: 0, a: 1}
+  labelOutlineWidth: 0
   placeholderMaterial: {fileID: -7964107986667598607, guid: 25f03344dfdd844f88e89487c558fe35, type: 3}
   flipped: 0
 --- !u!4 &525107023
@@ -170,7 +248,8 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 398214999}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &668481013
@@ -313,19 +392,6 @@ MonoBehaviour:
   lastRollPlayerIndex: -1
   isRolling: 0
   rollingPlayerIndex: -1
---- !u!114 &738075094
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 738075090}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PropertyManager
-  boardManager: {fileID: 525107022}
 --- !u!4 &738075093
 Transform:
   m_ObjectHideFlags: 0
@@ -341,6 +407,25 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &738075094
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 738075090}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PropertyManager
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  boardManager: {fileID: 525107022}
+  pendingSpaceIndex: -1
+  pendingPlayerIndex: -1
+  pendingIsBuild: 0
 --- !u!1 &906152661
 GameObject:
   m_ObjectHideFlags: 0
@@ -442,14 +527,14 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 1
-  m_Color: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
+  m_Color: {r: 0.754717, g: 0.754717, b: 0.754717, a: 1}
   m_Intensity: 1
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
   m_CookieSize: 10
   m_Shadows:
-    m_Type: 2
+    m_Type: 1
     m_Resolution: -1
     m_CustomResolution: -1
     m_Strength: 1
@@ -482,7 +567,7 @@ Light:
     serializedVersion: 2
     m_Bits: 4294967295
   m_RenderingLayerMask: 1
-  m_Lightmapping: 4
+  m_Lightmapping: 2
   m_LightShadowCasterMode: 0
   m_AreaSize: {x: 1, y: 1}
   m_BounceIntensity: 1
@@ -505,13 +590,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 932751247}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.40821788, y: -0.23456968, z: 0.10938163, w: 0.8754261}
+  m_LocalRotation: {x: -0.26658598, y: 0.65355945, z: -0.65488017, w: -0.27004454}
   m_LocalPosition: {x: 0, y: 3, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
+  m_LocalEulerAnglesHint: {x: -270.3, y: -46.8, z: 88.6}
 --- !u!1 &1439373725
 GameObject:
   m_ObjectHideFlags: 0
@@ -542,7 +627,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SimplePawnVisualizer
   boardManager: {fileID: 525107022}
-  pawnHeight: 0.85
+  pawnHeight: 0.5
+  pawnHeightOffset: 0
   moveSpeed: 8
   localYOffset: 0.02
   bounceHeight: 0.25
@@ -624,7 +710,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 9
+  orthographic size: 10
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -648,13 +734,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1686373042}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.11592385, y: 0.86603487, z: -0.23610818, w: 0.42520383}
-  m_LocalPosition: {x: -14.6, y: 10.42, z: 11}
+  m_LocalRotation: {x: -0.078911915, y: 0.9077137, z: -0.27994296, w: -0.30242458}
+  m_LocalPosition: {x: 11.64, y: 14.3, z: 15.9}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 30.5, y: 127.7, z: 0}
+  m_LocalEulerAnglesHint: {x: 33.776, y: 217.399, z: 1.797}
 --- !u!114 &1686373046
 MonoBehaviour:
   m_ObjectHideFlags: 0

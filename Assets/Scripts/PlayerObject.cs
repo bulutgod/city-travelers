@@ -30,6 +30,11 @@ public class PlayerObject : NetworkBehaviour
 
     [SyncVar] public bool isBot = false;
 
+    /// <summary>
+    /// Start karesinden (0) en az bir kez geçmiş mi? 4. ev dikmek için gerekli.
+    /// </summary>
+    [SyncVar] public bool hasPassedStart = false;
+
     private void OnCharacterIndexChanged(int oldVal, int newVal)
     {
         LobbyUINew.Instance?.RefreshLobby();
@@ -75,6 +80,13 @@ public class PlayerObject : NetworkBehaviour
     {
         if (PropertyManager.Instance != null)
             PropertyManager.Instance.ServerDeclineBuy(this, spaceIndex);
+    }
+
+    [Command]
+    public void CmdBuyOrBuild(int spaceIndex, int count)
+    {
+        if (PropertyManager.Instance != null)
+            PropertyManager.Instance.ServerTryBuyOrBuild(this, spaceIndex, count);
     }
 
     /// <summary>

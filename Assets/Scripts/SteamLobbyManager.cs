@@ -114,11 +114,15 @@ public class SteamLobbyManager : MonoBehaviour
 
     public async void CreateLobby()
     {
-        if (!SteamClient.IsValid) return;
+        if (!SteamClient.IsValid)
+        {
+            Debug.LogWarning("[Steam] CreateLobby atlandi: SteamClient.IsValid degil");
+            return;
+        }
 
         if (NetworkServer.active || NetworkClient.active)
         {
-            Debug.LogWarning("[Steam] Zaten host/client aktif, CreateLobby atland�.");
+            Debug.LogWarning($"[Steam] Zaten host/client aktif, CreateLobby atlandi. Server={NetworkServer.active} Client={NetworkClient.active}");
             return;
         }
 
@@ -128,7 +132,7 @@ public class SteamLobbyManager : MonoBehaviour
             return;
         }
 
-        Debug.Log("[Steam] Lobi olu�turuluyor...");
+        Debug.Log("[Steam] Lobi olusturuluyor...");
 
         Lobby? lobby = await SteamMatchmaking.CreateLobbyAsync(maxPlayers);
 

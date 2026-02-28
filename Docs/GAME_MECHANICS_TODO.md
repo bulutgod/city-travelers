@@ -8,7 +8,7 @@
   - `rent = purchasePrice * 0.1` veya benzeri oran
   - *Şimdilik atlandı – map gelişigüzel dolduruldu, tasarım gelince yapılacak*
 
-## Ev Sistemi (Planlanan)
+## Ev Sistemi ✅ (Uygulandı)
 
 - **4 ev:** Her mülkte 0–4 ev dikilebilir (ucuzdan pahalıya)
 - **4. ev kuralı:** 4. evi dikmek için Start’tan en az 1 kez geçmiş olmak gerekir

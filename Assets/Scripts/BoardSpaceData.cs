@@ -27,6 +27,9 @@ public class SpaceInfo
     [Tooltip("Start'tan geçişte verilen bonus.")]
     public int startBonus = 0;
 
+    [Tooltip("Ev fiyatı (0 = purchasePrice/2 kullanılır).")]
+    public int housePrice = 0;
+
     public enum SpaceType
     {
         Normal,

@@ -27,14 +27,14 @@ Bu dosya, projeye yeni geçen agent'ın (özellikle macOS ortamında) hızlıca 
 
 ## Sonraki Adımlar (Öncelik Sırasıyla)
 
-### 1. Ev Sistemi (Planlanan)
-- Her mülkte 0–4 ev
-- 4. ev için Start’tan en az 1 kez geçmiş olma şartı
-- Ev sayısına göre kira artışı (örn. 1 ev x2, 2 ev x4, …)
+### 1. Ev Sistemi ✅ (Tamamlandı)
+- [x] Her mülkte 0–4 ev
+- [x] 4. ev için Start’tan en az 1 kez geçmiş olma şartı
+- [x] Ev sayısına göre kira artışı (1 ev x2, 2 ev x4, 3 ev x8, 4 ev x16) + UI
 
-### 2. Oyun Sonu
-- Tek oyuncu kalınca "X kazandı!" ekranı
-- İflas edenler hariç 1 kişi kaldığında oyun bitişi
+### 2. Oyun Sonu ✅ (Tamamlandı)
+- [x] Tek oyuncu kalınca "X kazandı!" ekranı
+- [x] İflas edenler hariç 1 kişi kaldığında oyun bitişi (bot da oyuncu sayılır)
 
 ### 3. UI İyileştirmeleri
 - Oyuncu kartlarında para gösterimi

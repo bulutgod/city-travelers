@@ -98,6 +98,7 @@ public class LobbyUINew : MonoBehaviour
     private void Start()
     {
         // Buton listeners
+        if (hostButton == null) Debug.LogWarning("[LobbyUI] hostButton null - Inspector'da atanmamis olabilir!");
         hostButton?.onClick.AddListener(OnHostClicked);
         leaveButton?.onClick.AddListener(OnLeaveClicked);
         startGameButton?.onClick.AddListener(OnStartGameClicked);
@@ -273,13 +274,13 @@ public class LobbyUINew : MonoBehaviour
                 {
                     _selectedDiceIndex = players[i].selectedDiceIndex;
                     var skin = dicePicker?.GetSkin(_selectedDiceIndex);
-                    if (skin != null)
+                    /*if (skin != null)
                     {
                         if (dicePickButtonIcon) dicePickButtonIcon.color = skin.diceColor;
                         if (dicePickButtonIconDot1) dicePickButtonIconDot1.color = skin.dotColor;
                         if (dicePickButtonIconDot2) dicePickButtonIconDot2.color = skin.dotColor;
                         if (dicePickButtonIconDot3) dicePickButtonIconDot3.color = skin.dotColor;
-                    }
+                    }*/
                 }
             }
             else
@@ -384,13 +385,13 @@ public class LobbyUINew : MonoBehaviour
 
         // "ZAR SE�" butonundaki mini zar� g�ncelle
         var skin = dicePicker?.GetSkin(index);
-        if (skin != null)
+        /*if (skin != null)
         {
             if (dicePickButtonIcon) dicePickButtonIcon.color = skin.diceColor;
             if (dicePickButtonIconDot1) dicePickButtonIconDot1.color = skin.dotColor;
             if (dicePickButtonIconDot2) dicePickButtonIconDot2.color = skin.dotColor;
             if (dicePickButtonIconDot3) dicePickButtonIconDot3.color = skin.dotColor;
-        }
+        }*/
 
         // Local oyuncunun kart�ndaki zar� g�ncelle
         var players = GetCurrentPlayers();
@@ -418,8 +419,18 @@ public class LobbyUINew : MonoBehaviour
 
     private void OnHostClicked()
     {
-        if (NetworkServer.active || NetworkClient.active) return;
-        SteamLobbyManager.Instance?.CreateLobby();
+        Debug.Log("[LobbyUI] OnHostClicked");
+        if (NetworkServer.active || NetworkClient.active)
+        {
+            Debug.LogWarning($"[LobbyUI] Host atlandi: Server={NetworkServer.active} Client={NetworkClient.active}");
+            return;
+        }
+        if (SteamLobbyManager.Instance == null)
+        {
+            Debug.LogWarning("[LobbyUI] SteamLobbyManager.Instance null!");
+            return;
+        }
+        SteamLobbyManager.Instance.CreateLobby();
     }
 
     private void OnLeaveClicked()

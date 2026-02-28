@@ -23,6 +23,7 @@ public class GameNetworkManager : NetworkManager
     private readonly HashSet<ulong> _voluntaryLeaveSteamIds = new HashSet<ulong>();
 
     private GameStateSnapshot _migrationSnapshot;
+    private bool _isVoluntaryLeave;
 
     private struct PersistedPlayerState
     {
@@ -33,6 +34,7 @@ public class GameNetworkManager : NetworkManager
         public int money;
         public float disconnectedAt;
         public string steamName;
+        public bool hasPassedStart;
     }
 
     #region Mirror Lifecycle
@@ -142,7 +144,7 @@ public class GameNetworkManager : NetworkManager
         }
         catch { }
 
-        if (isInGameScene && HostMigrationManager.Instance != null)
+        if (isInGameScene && HostMigrationManager.Instance != null && !_isVoluntaryLeave)
         {
             HostMigrationManager.Instance.OnClientDisconnected();
             return;
@@ -156,10 +158,23 @@ public class GameNetworkManager : NetworkManager
             {
                 string active = SceneManager.GetActiveScene().name;
                 if (active != targetScene)
-                    SceneManager.LoadScene(targetScene);
+                {
+                    if (_isVoluntaryLeave)
+                    {
+                        _isVoluntaryLeave = false;
+                        var loader = new GameObject("_VoluntaryLeaveLoader").AddComponent<VoluntaryLeaveLoader>();
+                        DontDestroyOnLoad(loader.gameObject);
+                        loader.LoadSceneClean(targetScene, gameObject);
+                    }
+                    else
+                    {
+                        SceneManager.LoadScene(targetScene);
+                    }
+                }
             }
             catch (System.Exception ex) { Debug.LogWarning("[Network] Scene load: " + ex.Message); }
         }
+        _isVoluntaryLeave = false;
     }
 
     /// <summary>
@@ -169,9 +184,16 @@ public class GameNetworkManager : NetworkManager
     public void RequestVoluntaryLeaveAndReturnToMenu()
     {
         if (!NetworkClient.active) return;
+        _isVoluntaryLeave = true;
         var localPlayer = NetworkClient.localPlayer?.GetComponent<PlayerObject>();
         if (localPlayer != null)
-            localPlayer.CmdVoluntaryLeave();
+        {
+            ulong id = localPlayer.steamId != 0 ? localPlayer.steamId : (SteamClient.IsValid ? SteamClient.SteamId.Value : 0);
+            if (NetworkServer.active && id != 0)
+                ServerMarkVoluntaryLeave(id);
+            else
+                localPlayer.CmdVoluntaryLeave();
+        }
         StartCoroutine(LeaveAfterDelay());
     }
 
@@ -179,10 +201,11 @@ public class GameNetworkManager : NetworkManager
     {
         yield return new WaitForSeconds(0.25f);
         try { SteamLobbyManager.Instance?.LeaveLobby(); } catch { }
-        StopClient();
-        string target = !string.IsNullOrWhiteSpace(offlineScene) ? offlineScene : fallbackLobbySceneName;
-        if (!string.IsNullOrWhiteSpace(target))
-            SceneManager.LoadScene(target);
+        if (NetworkServer.active)
+            StopHost();
+        else
+            StopClient();
+        // _isVoluntaryLeave OnClientDisconnect'ta kullanilacak, orada sifirlanir
     }
 
     public override void OnServerAddPlayer(NetworkConnectionToClient conn)
@@ -247,6 +270,7 @@ public class GameNetworkManager : NetworkManager
                     player.selectedCharacterIndex = bot.selectedCharacterIndex;
                     player.selectedDiceIndex = bot.selectedDiceIndex;
                     player.money = bot.money;
+                    player.hasPassedStart = bot.hasPassedStart;
                     Debug.Log($"[Network] Reconnect restore BOT state -> Space:{bot.currentSpaceIndex} Money:{bot.money}");
                 }
                 else
@@ -255,6 +279,7 @@ public class GameNetworkManager : NetworkManager
                     player.selectedCharacterIndex = restored.selectedCharacterIndex;
                     player.selectedDiceIndex = restored.selectedDiceIndex;
                     player.money = restored.money;
+                    player.hasPassedStart = restored.hasPassedStart;
                 }
                 if (!string.IsNullOrWhiteSpace(restored.steamName))
                     player.steamName = restored.steamName;
@@ -282,6 +307,7 @@ public class GameNetworkManager : NetworkManager
                     player.selectedCharacterIndex = entry.selectedCharacterIndex;
                     player.selectedDiceIndex = entry.selectedDiceIndex;
                     player.money = entry.money;
+                    player.hasPassedStart = entry.hasPassedStart;
                     if (!string.IsNullOrWhiteSpace(entry.steamName)) player.steamName = entry.steamName;
                     if (entry.steamId != 0) player.steamId = entry.steamId;
                     Debug.Log($"[Network] Migration restore host player -> Index:{player.playerIndex}");
@@ -331,7 +357,8 @@ public class GameNetworkManager : NetworkManager
                             selectedDiceIndex = player.selectedDiceIndex,
                             money = player.money,
                             disconnectedAt = Time.unscaledTime,
-                            steamName = player.steamName
+                            steamName = player.steamName,
+                            hasPassedStart = player.hasPassedStart
                         };
                         StartCoroutine(SpawnBotAfterDisconnect(steamId, player));
                     }
@@ -375,6 +402,7 @@ public class GameNetworkManager : NetworkManager
     private System.Collections.IEnumerator SpawnBotAfterDisconnect(ulong steamId, PlayerObject oldPlayer)
     {
         yield return null;
+        if (!NetworkServer.active) yield break;
         if (!_disconnectedStates.TryGetValue(steamId, out var state)) yield break;
 
         var botGo = Instantiate(playerPrefab);
@@ -389,6 +417,7 @@ public class GameNetworkManager : NetworkManager
         bot.money = state.money;
         bot.selectedCharacterIndex = state.selectedCharacterIndex;
         bot.selectedDiceIndex = state.selectedDiceIndex;
+        bot.hasPassedStart = state.hasPassedStart;
 
         NetworkServer.Spawn(botGo);
         _botPlayers.Add(bot);
@@ -511,7 +540,8 @@ public class GameNetworkManager : NetworkManager
                 selectedDiceIndex = entry.selectedDiceIndex,
                 money = entry.money,
                 disconnectedAt = Time.unscaledTime,
-                steamName = entry.steamName ?? ""
+                steamName = entry.steamName ?? "",
+                hasPassedStart = entry.hasPassedStart
             };
         }
     }

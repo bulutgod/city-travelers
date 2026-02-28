@@ -8,6 +8,7 @@ using UnityEngine.UI;
 /// - Aktif oyuncu
 /// - Son zar
 /// - Roll butonu (sadece local sira sendeyse aktif)
+/// - Ev dikme paneli
 /// </summary>
 public class GameHudUI : MonoBehaviour
 {
@@ -24,8 +25,21 @@ public class GameHudUI : MonoBehaviour
     private Text _buyPanelText;
     private Button _buyButton;
     private Button _declineButton;
+    private Text _buyButtonText;
+    private GameObject _buyPanelContent;
+    private GameObject _buildPanelContent;
+    private Toggle[] _houseToggles;
+    private GameObject[] _houseBoxes;
+    private Text[] _houseLabels;
+    private Text _buildPriceText;
+    private Button _buildBuyButton;
+    private int _selectedHouseCount;
     private GameObject _notificationToast;
     private Text _notificationText;
+    private GameObject _gameOverPanel;
+    private Text _gameOverText;
+    private Button _gameOverMenuButton;
+    private Button _leaveGameButton;
     private bool _uiBuilt;
     private const float NotificationDuration = 4f;
 
@@ -80,11 +94,13 @@ public class GameHudUI : MonoBehaviour
 
         _buyPanel = CreateBuyPanel(canvasGo.transform);
         _buyPanel.SetActive(false);
-        _buyButton.onClick.AddListener(OnBuyClicked);
         _declineButton.onClick.AddListener(OnDeclineClicked);
 
         _notificationToast = CreateNotificationToast(canvasGo.transform);
         _notificationToast.SetActive(false);
+
+        _gameOverPanel = CreateGameOverPanel(canvasGo.transform);
+        _gameOverPanel.SetActive(false);
 
         var buttonGo = new GameObject("RollButton");
         buttonGo.transform.SetParent(canvasGo.transform, false);
@@ -111,6 +127,28 @@ public class GameHudUI : MonoBehaviour
         txtRt.anchorMax = Vector2.one;
         txtRt.offsetMin = Vector2.zero;
         txtRt.offsetMax = Vector2.zero;
+
+        var leaveBtn = new GameObject("LeaveGameButton");
+        leaveBtn.transform.SetParent(canvasGo.transform, false);
+        var leaveRt = leaveBtn.AddComponent<RectTransform>();
+        leaveRt.anchorMin = new Vector2(0, 0);
+        leaveRt.anchorMax = new Vector2(0, 0);
+        leaveRt.pivot = new Vector2(0, 0);
+        leaveRt.anchoredPosition = new Vector2(16, 16);
+        leaveRt.sizeDelta = new Vector2(140, 40);
+        var leaveImg = leaveBtn.AddComponent<Image>();
+        leaveImg.color = new Color(0.5f, 0.25f, 0.25f, 0.9f);
+        _leaveGameButton = leaveBtn.AddComponent<Button>();
+        _leaveGameButton.targetGraphic = leaveImg;
+        var leaveTxt = CreateText(leaveBtn.transform, "Text", Vector2.zero, "Oyunu Bırak");
+        leaveTxt.alignment = TextAnchor.MiddleCenter;
+        leaveTxt.rectTransform.anchorMin = Vector2.zero;
+        leaveTxt.rectTransform.anchorMax = Vector2.one;
+        leaveTxt.rectTransform.offsetMin = Vector2.zero;
+        leaveTxt.rectTransform.offsetMax = Vector2.zero;
+        leaveTxt.fontSize = 16;
+        _leaveGameButton.onClick.AddListener(OnLeaveGameClicked);
+
         _uiBuilt = true;
     }
 
@@ -159,12 +197,20 @@ public class GameHudUI : MonoBehaviour
         panelRt.anchorMax = new Vector2(0.5f, 0.5f);
         panelRt.pivot = new Vector2(0.5f, 0.5f);
         panelRt.anchoredPosition = Vector2.zero;
-        panelRt.sizeDelta = new Vector2(320, 140);
+        panelRt.sizeDelta = new Vector2(380, 200);
 
         var bg = panel.AddComponent<Image>();
         bg.color = new Color(0.1f, 0.1f, 0.15f, 0.95f);
 
-        _buyPanelText = CreateText(panel.transform, "BuyText", new Vector2(0, 30), "Mülk satın al?");
+        _buyPanelContent = new GameObject("BuyContent");
+        _buyPanelContent.transform.SetParent(panel.transform, false);
+        var buyContentRt = _buyPanelContent.AddComponent<RectTransform>();
+        buyContentRt.anchorMin = Vector2.zero;
+        buyContentRt.anchorMax = Vector2.one;
+        buyContentRt.offsetMin = Vector2.zero;
+        buyContentRt.offsetMax = Vector2.zero;
+
+        _buyPanelText = CreateText(_buyPanelContent.transform, "BuyText", new Vector2(0, 30), "Mülk satın al?");
         var txtRt = _buyPanelText.rectTransform;
         txtRt.anchorMin = new Vector2(0.5f, 0.5f);
         txtRt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -174,7 +220,7 @@ public class GameHudUI : MonoBehaviour
         _buyPanelText.alignment = TextAnchor.MiddleCenter;
 
         var buyBtn = new GameObject("BuyButton");
-        buyBtn.transform.SetParent(panel.transform, false);
+        buyBtn.transform.SetParent(_buyPanelContent.transform, false);
         var buyRt = buyBtn.AddComponent<RectTransform>();
         buyRt.anchorMin = new Vector2(0.5f, 0);
         buyRt.anchorMax = new Vector2(0.5f, 0);
@@ -186,6 +232,7 @@ public class GameHudUI : MonoBehaviour
         _buyButton = buyBtn.AddComponent<Button>();
         _buyButton.targetGraphic = buyImg;
         var buyTxt = CreateText(buyBtn.transform, "Text", Vector2.zero, "SATIN AL");
+        _buyButtonText = buyTxt;
         buyTxt.alignment = TextAnchor.MiddleCenter;
         buyTxt.rectTransform.anchorMin = Vector2.zero;
         buyTxt.rectTransform.anchorMax = Vector2.one;
@@ -193,7 +240,7 @@ public class GameHudUI : MonoBehaviour
         buyTxt.rectTransform.offsetMax = Vector2.zero;
 
         var declineBtn = new GameObject("DeclineButton");
-        declineBtn.transform.SetParent(panel.transform, false);
+        declineBtn.transform.SetParent(_buyPanelContent.transform, false);
         var declineRt = declineBtn.AddComponent<RectTransform>();
         declineRt.anchorMin = new Vector2(0.5f, 0);
         declineRt.anchorMax = new Vector2(0.5f, 0);
@@ -211,7 +258,276 @@ public class GameHudUI : MonoBehaviour
         declineTxt.rectTransform.offsetMin = Vector2.zero;
         declineTxt.rectTransform.offsetMax = Vector2.zero;
 
+        _buildPanelContent = CreateBuildHousePanelContent(panel.transform);
+        _buildPanelContent.SetActive(false);
+
         return panel;
+    }
+
+    private GameObject CreateBuildHousePanelContent(Transform parent)
+    {
+        var root = new GameObject("BuildContent");
+        root.transform.SetParent(parent, false);
+        var rootRt = root.AddComponent<RectTransform>();
+        rootRt.anchorMin = Vector2.zero;
+        rootRt.anchorMax = Vector2.one;
+        rootRt.offsetMin = Vector2.zero;
+        rootRt.offsetMax = Vector2.zero;
+
+        var title = CreateText(root.transform, "Title", new Vector2(0, 70), "Ev dik (1=Yer, 2-4=Ev)");
+        var titleRt = title.rectTransform;
+        titleRt.anchorMin = new Vector2(0.5f, 1);
+        titleRt.anchorMax = new Vector2(0.5f, 1);
+        titleRt.pivot = new Vector2(0.5f, 1);
+        titleRt.anchoredPosition = new Vector2(0, 70);
+        titleRt.sizeDelta = new Vector2(340, 24);
+        title.alignment = TextAnchor.MiddleCenter;
+
+        var row = new GameObject("HouseRow");
+        row.transform.SetParent(root.transform, false);
+        var rowRt = row.AddComponent<RectTransform>();
+        rowRt.anchorMin = new Vector2(0.5f, 0.5f);
+        rowRt.anchorMax = new Vector2(0.5f, 0.5f);
+        rowRt.pivot = new Vector2(0.5f, 0.5f);
+        rowRt.anchoredPosition = new Vector2(0, 20);
+        rowRt.sizeDelta = new Vector2(420, 110);
+
+        var hlg = row.AddComponent<HorizontalLayoutGroup>();
+        hlg.spacing = 12;
+        hlg.childAlignment = TextAnchor.MiddleCenter;
+        hlg.childControlWidth = true;
+        hlg.childControlHeight = true;
+        hlg.childForceExpandWidth = false;
+        hlg.childForceExpandHeight = false;
+
+        _houseBoxes = new GameObject[4];
+        _houseToggles = new Toggle[4];
+        _houseLabels = new Text[4];
+        for (int i = 0; i < 4; i++)
+        {
+            var slot = CreateHouseSlot(row.transform, i + 1);
+            _houseBoxes[i] = slot;
+            _houseToggles[i] = slot.GetComponentInChildren<Toggle>();
+            var texts = slot.GetComponentsInChildren<Text>();
+            _houseLabels[i] = texts.Length > 0 ? texts[0] : null;
+            int idx = i;
+            _houseToggles[i].onValueChanged.AddListener(_ => OnHouseToggleChanged(idx));
+        }
+
+        var bottomRow = new GameObject("BottomRow");
+        bottomRow.transform.SetParent(root.transform, false);
+        var bottomRt = bottomRow.AddComponent<RectTransform>();
+        bottomRt.anchorMin = new Vector2(0, 0);
+        bottomRt.anchorMax = new Vector2(1, 0);
+        bottomRt.pivot = new Vector2(0.5f, 0);
+        bottomRt.anchoredPosition = new Vector2(0, 8);
+        bottomRt.sizeDelta = new Vector2(0, 44);
+        var bottomHg = bottomRow.AddComponent<HorizontalLayoutGroup>();
+        bottomHg.spacing = 16;
+        bottomHg.childAlignment = TextAnchor.MiddleLeft;
+        bottomHg.padding = new RectOffset(20, 0, 0, 0);
+        bottomHg.childControlWidth = false;
+        bottomHg.childControlHeight = true;
+        bottomHg.childForceExpandWidth = false;
+
+        _buildPriceText = CreateText(bottomRow.transform, "Price", Vector2.zero, "0 TL");
+        _buildPriceText.rectTransform.sizeDelta = new Vector2(80, 28);
+
+        var buildBuyGo = new GameObject("BuildBuyButton");
+        buildBuyGo.transform.SetParent(bottomRow.transform, false);
+        var buildBuyRt = buildBuyGo.AddComponent<RectTransform>();
+        buildBuyRt.sizeDelta = new Vector2(100, 36);
+        var buildBuyImg = buildBuyGo.AddComponent<Image>();
+        buildBuyImg.color = new Color(0.2f, 0.7f, 0.3f, 1f);
+        _buildBuyButton = buildBuyGo.AddComponent<Button>();
+        _buildBuyButton.targetGraphic = buildBuyImg;
+        var buildBuyTxt = CreateText(buildBuyGo.transform, "Text", Vector2.zero, "EV DİK");
+        buildBuyTxt.alignment = TextAnchor.MiddleCenter;
+        buildBuyTxt.rectTransform.anchorMin = Vector2.zero;
+        buildBuyTxt.rectTransform.anchorMax = Vector2.one;
+        buildBuyTxt.rectTransform.offsetMin = Vector2.zero;
+        buildBuyTxt.rectTransform.offsetMax = Vector2.zero;
+        _buildBuyButton.onClick.AddListener(OnBuildBuyClicked);
+
+        var buildDeclineBtn = new GameObject("BuildDeclineButton");
+        buildDeclineBtn.transform.SetParent(bottomRow.transform, false);
+        var buildDeclineRt = buildDeclineBtn.AddComponent<RectTransform>();
+        buildDeclineRt.sizeDelta = new Vector2(100, 36);
+        var buildDeclineImg = buildDeclineBtn.AddComponent<Image>();
+        buildDeclineImg.color = new Color(0.6f, 0.3f, 0.3f, 1f);
+        var buildDeclineBtnComp = buildDeclineBtn.AddComponent<Button>();
+        buildDeclineBtnComp.targetGraphic = buildDeclineImg;
+        buildDeclineBtnComp.onClick.AddListener(OnDeclineClicked);
+        var buildDeclineTxt = CreateText(buildDeclineBtn.transform, "Text", Vector2.zero, "GEÇ");
+        buildDeclineTxt.alignment = TextAnchor.MiddleCenter;
+        buildDeclineTxt.rectTransform.anchorMin = Vector2.zero;
+        buildDeclineTxt.rectTransform.anchorMax = Vector2.one;
+        buildDeclineTxt.rectTransform.offsetMin = Vector2.zero;
+        buildDeclineTxt.rectTransform.offsetMax = Vector2.zero;
+
+        return root;
+    }
+
+    private GameObject CreateHouseSlot(Transform parent, int houseNum)
+    {
+        var slot = new GameObject($"HouseSlot_{houseNum}");
+        slot.transform.SetParent(parent, false);
+        var slotRt = slot.AddComponent<RectTransform>();
+        slotRt.sizeDelta = new Vector2(95, 100);
+
+        var box = new GameObject("Box");
+        box.transform.SetParent(slot.transform, false);
+        var boxRt = box.AddComponent<RectTransform>();
+        boxRt.anchorMin = new Vector2(0.5f, 1);
+        boxRt.anchorMax = new Vector2(0.5f, 1);
+        boxRt.pivot = new Vector2(0.5f, 1);
+        boxRt.anchoredPosition = new Vector2(0, 0);
+        boxRt.sizeDelta = new Vector2(95, 68);
+        var boxImg = box.AddComponent<Image>();
+        boxImg.color = new Color(0.35f, 0.35f, 0.38f, 1f);
+
+        var numLbl = CreateText(box.transform, "Num", new Vector2(0, -18), houseNum.ToString());
+        var numRt = numLbl.rectTransform;
+        numRt.anchorMin = new Vector2(0.5f, 0.5f);
+        numRt.anchorMax = new Vector2(0.5f, 0.5f);
+        numRt.pivot = new Vector2(0.5f, 0.5f);
+        numRt.anchoredPosition = new Vector2(0, -18);
+        numRt.sizeDelta = new Vector2(50, 30);
+        numLbl.alignment = TextAnchor.MiddleCenter;
+        numLbl.fontSize = 22;
+
+        if (houseNum == 4)
+        {
+            var restrictLbl = CreateText(box.transform, "Restrict", new Vector2(0, -12), "1 tur geçmeden\nalınamaz");
+            restrictLbl.fontSize = 11;
+            restrictLbl.alignment = TextAnchor.MiddleCenter;
+            var restrictRt = restrictLbl.rectTransform;
+            restrictRt.anchorMin = new Vector2(0.5f, 0.5f);
+            restrictRt.anchorMax = new Vector2(0.5f, 0.5f);
+            restrictRt.pivot = new Vector2(0.5f, 0.5f);
+            restrictRt.anchoredPosition = new Vector2(0, -12);
+            restrictRt.sizeDelta = new Vector2(85, 40);
+            restrictLbl.gameObject.name = "RestrictLabel";
+            restrictLbl.color = new Color(0.9f, 0.7f, 0.2f, 1f);
+        }
+
+        var toggleGo = new GameObject("Toggle");
+        toggleGo.transform.SetParent(slot.transform, false);
+        var toggleRt = toggleGo.AddComponent<RectTransform>();
+        toggleRt.anchorMin = new Vector2(0.5f, 0);
+        toggleRt.anchorMax = new Vector2(0.5f, 0);
+        toggleRt.pivot = new Vector2(0.5f, 0);
+        toggleRt.anchoredPosition = new Vector2(0, 6);
+        toggleRt.sizeDelta = new Vector2(32, 32);
+        var toggleBg = toggleGo.AddComponent<Image>();
+        toggleBg.color = new Color(0.2f, 0.2f, 0.25f, 1f);
+        var toggle = toggleGo.AddComponent<Toggle>();
+        toggle.targetGraphic = toggleBg;
+        var checkmark = new GameObject("Checkmark");
+        checkmark.transform.SetParent(toggleGo.transform, false);
+        var checkRt = checkmark.AddComponent<RectTransform>();
+        checkRt.anchorMin = Vector2.zero;
+        checkRt.anchorMax = Vector2.one;
+        checkRt.offsetMin = new Vector2(5, 5);
+        checkRt.offsetMax = new Vector2(-5, -5);
+        var checkImg = checkmark.AddComponent<Image>();
+        checkImg.color = new Color(0.2f, 0.9f, 0.3f, 1f);
+        toggle.graphic = checkImg;
+        toggle.isOn = false;
+
+        return slot;
+    }
+
+    private void OnHouseToggleChanged(int index)
+    {
+        if (_houseToggles == null || index < 0 || index >= 4) return;
+        bool isOn = _houseToggles[index].isOn;
+        if (isOn)
+        {
+            for (int i = 0; i < index; i++)
+                if (_houseToggles[i] != null) _houseToggles[i].SetIsOnWithoutNotify(true);
+        }
+        else
+        {
+            for (int i = index + 1; i < 4; i++)
+                if (_houseToggles[i] != null) _houseToggles[i].SetIsOnWithoutNotify(false);
+        }
+        _selectedHouseCount = 0;
+        for (int i = 0; i < 4; i++)
+        {
+            if (_houseToggles[i] != null && _houseToggles[i].isOn)
+                _selectedHouseCount = i + 1;
+            else
+                break;
+        }
+        RefreshBuildPrice();
+    }
+
+    private void RefreshBuildPanel(int spaceIndex, SpaceInfo info)
+    {
+        if (_houseToggles == null || _houseBoxes == null || _localPlayer == null) return;
+        int owner = PropertyManager.Instance.GetOwner(spaceIndex);
+        bool isEmpty = owner < 0;
+        int currentHouses = isEmpty ? 0 : PropertyManager.Instance.GetHouseCount(spaceIndex);
+        int maxCanAdd = isEmpty ? 4 : (4 - currentHouses);
+        bool canAdd4th = _localPlayer.hasPassedStart;
+
+        for (int i = 0; i < 4; i++)
+        {
+            bool canSelect = (i < maxCanAdd) && (i < 3 || canAdd4th);
+            if (_houseToggles[i] != null)
+            {
+                _houseToggles[i].interactable = canSelect;
+                if (!canSelect) _houseToggles[i].SetIsOnWithoutNotify(false);
+            }
+            if (_houseLabels[i] != null)
+                _houseLabels[i].text = (isEmpty && i == 0) ? "Yer" : (i + 1).ToString();
+            var restrict = _houseBoxes[i] != null ? _houseBoxes[i].transform.Find("Box/RestrictLabel") : null;
+            if (restrict != null)
+                restrict.gameObject.SetActive(i == 3 && !canAdd4th);
+        }
+        _selectedHouseCount = 0;
+        for (int i = 0; i < 4; i++)
+        {
+            if (_houseToggles[i] != null && _houseToggles[i].isOn)
+                _selectedHouseCount = i + 1;
+            else
+                break;
+        }
+        RefreshBuildPrice();
+    }
+
+    private void RefreshBuildPrice()
+    {
+        if (_buildPriceText == null || _buildBuyButton == null || PropertyManager.Instance == null || BoardManager.Instance == null || _localPlayer == null) return;
+        int spaceIndex = PropertyManager.Instance.pendingSpaceIndex;
+        if (spaceIndex < 0) return;
+        var info = BoardManager.Instance.GetSpaceInfo(spaceIndex);
+        int purchasePrice = info != null ? info.purchasePrice : 0;
+        int housePrice = info != null ? (info.housePrice > 0 ? info.housePrice : (info.purchasePrice / 2)) : 0;
+        int owner = PropertyManager.Instance.GetOwner(spaceIndex);
+        bool isEmpty = owner < 0;
+        int total;
+        if (isEmpty)
+        {
+            int evSayisi = _selectedHouseCount > 0 ? _selectedHouseCount - 1 : 0;
+            total = purchasePrice + housePrice * evSayisi;
+        }
+        else
+        {
+            total = housePrice * _selectedHouseCount;
+        }
+        _buildPriceText.text = $"{total} TL";
+        bool canBuy = isEmpty ? (_selectedHouseCount >= 1 && _localPlayer.money >= total) : (_selectedHouseCount >= 1 && _localPlayer.money >= total);
+        _buildBuyButton.interactable = canBuy;
+    }
+
+    private void OnBuildBuyClicked()
+    {
+        if (_localPlayer == null || PropertyManager.Instance == null) return;
+        int spaceIndex = PropertyManager.Instance.pendingSpaceIndex;
+        if (spaceIndex < 0 || _selectedHouseCount < 1) return;
+        _localPlayer.CmdBuyOrBuild(spaceIndex, _selectedHouseCount);
     }
 
     private GameObject CreateNotificationToast(Transform parent)
@@ -239,6 +555,76 @@ public class GameHudUI : MonoBehaviour
         return go;
     }
 
+    private GameObject CreateGameOverPanel(Transform parent)
+    {
+        var go = new GameObject("GameOverPanel");
+        go.transform.SetParent(parent, false);
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+
+        var bg = go.AddComponent<Image>();
+        bg.color = new Color(0.05f, 0.05f, 0.1f, 0.92f);
+
+        var title = CreateText(go.transform, "Title", Vector2.zero, "KAZANAN");
+        var titleRt = title.rectTransform;
+        titleRt.anchorMin = new Vector2(0.5f, 0.6f);
+        titleRt.anchorMax = new Vector2(0.5f, 0.6f);
+        titleRt.pivot = new Vector2(0.5f, 0.5f);
+        titleRt.sizeDelta = new Vector2(600, 50);
+        title.alignment = TextAnchor.MiddleCenter;
+        title.fontSize = 28;
+        title.fontStyle = FontStyle.Bold;
+        title.color = new Color(0.9f, 0.85f, 0.3f, 1f);
+
+        _gameOverText = CreateText(go.transform, "WinnerName", Vector2.zero, "");
+        var winnerRt = _gameOverText.rectTransform;
+        winnerRt.anchorMin = new Vector2(0.5f, 0.48f);
+        winnerRt.anchorMax = new Vector2(0.5f, 0.48f);
+        winnerRt.pivot = new Vector2(0.5f, 0.5f);
+        winnerRt.sizeDelta = new Vector2(600, 80);
+        _gameOverText.alignment = TextAnchor.MiddleCenter;
+        _gameOverText.fontSize = 42;
+        _gameOverText.fontStyle = FontStyle.Bold;
+        _gameOverText.color = new Color(0.3f, 0.9f, 0.4f, 1f);
+
+        var menuBtn = new GameObject("MenuButton");
+        menuBtn.transform.SetParent(go.transform, false);
+        var menuRt = menuBtn.AddComponent<RectTransform>();
+        menuRt.anchorMin = new Vector2(0.5f, 0.25f);
+        menuRt.anchorMax = new Vector2(0.5f, 0.25f);
+        menuRt.pivot = new Vector2(0.5f, 0.5f);
+        menuRt.sizeDelta = new Vector2(200, 48);
+        var menuImg = menuBtn.AddComponent<Image>();
+        menuImg.color = new Color(0.25f, 0.5f, 0.7f, 1f);
+        _gameOverMenuButton = menuBtn.AddComponent<Button>();
+        _gameOverMenuButton.targetGraphic = menuImg;
+        var menuTxt = CreateText(menuBtn.transform, "Text", Vector2.zero, "Menüye Dön");
+        menuTxt.alignment = TextAnchor.MiddleCenter;
+        menuTxt.rectTransform.anchorMin = Vector2.zero;
+        menuTxt.rectTransform.anchorMax = Vector2.one;
+        menuTxt.rectTransform.offsetMin = Vector2.zero;
+        menuTxt.rectTransform.offsetMax = Vector2.zero;
+        menuTxt.fontSize = 22;
+        _gameOverMenuButton.onClick.AddListener(OnGameOverMenuClicked);
+
+        return go;
+    }
+
+    private void OnGameOverMenuClicked()
+    {
+        if (GameNetworkManager.Instance != null)
+            GameNetworkManager.Instance.RequestVoluntaryLeaveAndReturnToMenu();
+    }
+
+    private void OnLeaveGameClicked()
+    {
+        if (GameNetworkManager.Instance != null)
+            GameNetworkManager.Instance.RequestVoluntaryLeaveAndReturnToMenu();
+    }
+
     private void OnRollClicked()
     {
         if (_localPlayer == null) return;
@@ -250,14 +636,6 @@ public class GameHudUI : MonoBehaviour
         }
 
         _localPlayer.CmdRequestRoll();
-    }
-
-    private void OnBuyClicked()
-    {
-        if (_localPlayer == null || PropertyManager.Instance == null) return;
-        int spaceIndex = PropertyManager.Instance.pendingSpaceIndex;
-        if (spaceIndex < 0) return;
-        _localPlayer.CmdBuyProperty(spaceIndex);
     }
 
     private void OnDeclineClicked()
@@ -303,8 +681,29 @@ public class GameHudUI : MonoBehaviour
             if (_rollButtonImage != null) _rollButtonImage.color = _buttonIdle;
             if (_rollButtonText != null) _rollButtonText.text = "ZAR BEKLE";
             if (_buyPanel != null) _buyPanel.SetActive(false);
+            if (_gameOverPanel != null) _gameOverPanel.SetActive(false);
             return;
         }
+
+        if (turn.winnerPlayerIndex >= 0)
+        {
+            if (_gameOverPanel != null)
+            {
+                _gameOverPanel.SetActive(true);
+                if (_gameOverText != null)
+                {
+                    string name = string.IsNullOrEmpty(turn.winnerName) ? $"Oyuncu {turn.winnerPlayerIndex}" : turn.winnerName;
+                    _gameOverText.text = $"{name} kazandı!";
+                }
+            }
+            if (_buyPanel != null) _buyPanel.SetActive(false);
+            if (_rollButton != null) _rollButton.interactable = false;
+            if (_leaveGameButton != null) _leaveGameButton.gameObject.SetActive(false);
+            return;
+        }
+
+        if (_gameOverPanel != null) _gameOverPanel.SetActive(false);
+        if (_leaveGameButton != null) _leaveGameButton.gameObject.SetActive(true);
 
         int activeIndex = turn.currentTurnPlayerIndex;
         _turnText.text = $"Turn {turn.turnNumber} | Active Player: {activeIndex}";
@@ -340,19 +739,20 @@ public class GameHudUI : MonoBehaviour
         _youText.text = $"You: P{_localPlayer.playerIndex} | Space: {_localPlayer.currentSpaceIndex}";
         _moneyText.text = $"Para: {_localPlayer.money}";
 
-        bool showBuyPanel = PropertyManager.Instance != null &&
+        bool showActionPanel = PropertyManager.Instance != null &&
             PropertyManager.Instance.pendingSpaceIndex >= 0 &&
-            PropertyManager.Instance.pendingPlayerIndex == _localPlayer.playerIndex;
+            PropertyManager.Instance.pendingPlayerIndex == _localPlayer.playerIndex &&
+            PropertyManager.Instance.pendingIsBuild;
         if (_buyPanel != null)
         {
-            _buyPanel.SetActive(showBuyPanel);
-            if (showBuyPanel && _buyPanelText != null && BoardManager.Instance != null)
+            _buyPanel.SetActive(showActionPanel);
+            if (_buyPanelContent != null) _buyPanelContent.SetActive(false);
+            if (_buildPanelContent != null) _buildPanelContent.SetActive(showActionPanel);
+            if (showActionPanel && BoardManager.Instance != null)
             {
-                var info = BoardManager.Instance.GetSpaceInfo(PropertyManager.Instance.pendingSpaceIndex);
-                string name = info != null ? info.displayName : "Kare";
-                int price = info != null ? info.purchasePrice : 0;
-                _buyPanelText.text = $"{name}\n{price} TL - Satın al?";
-                _buyButton.interactable = _localPlayer.money >= price;
+                int spaceIndex = PropertyManager.Instance.pendingSpaceIndex;
+                var info = BoardManager.Instance.GetSpaceInfo(spaceIndex);
+                RefreshBuildPanel(spaceIndex, info);
             }
         }
 

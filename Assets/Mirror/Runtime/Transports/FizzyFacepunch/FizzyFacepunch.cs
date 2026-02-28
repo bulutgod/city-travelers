@@ -286,6 +286,8 @@ namespace Mirror.FizzySteam
     
     private bool InitialiseSteamworks(uint appid)
     {
+      if (SteamClient.IsValid)
+        return true; // Already initialized (e.g. scene reload from game to lobby)
       try
       {
         SteamClient.Init( appid, true );

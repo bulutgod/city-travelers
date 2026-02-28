@@ -55,7 +55,8 @@ public class HostMigrationManager : MonoBehaviour
         try
         {
             var props = PropertyManager.Instance?.spaceOwners;
-            _savedSnapshot = GameStateSnapshot.Capture(props);
+            var houses = PropertyManager.Instance?.spaceHouseCounts;
+            _savedSnapshot = GameStateSnapshot.Capture(props, houses);
             if (_savedSnapshot != null && !_savedSnapshot.isValid)
                 Debug.Log("[HostMigration] Snapshot alindi ama gecersiz (oyuncu yok). Yeni host yine de acilacak.");
         }

@@ -17,6 +17,8 @@ public class GameStateSnapshot
     public int lastRollPlayerIndex;
     public bool isRolling;
     public int rollingPlayerIndex;
+    public int winnerPlayerIndex = -1;
+    public string winnerName = "";
 
     [Serializable]
     public class PlayerEntry
@@ -28,6 +30,7 @@ public class GameStateSnapshot
         public int selectedCharacterIndex;
         public int selectedDiceIndex;
         public int money;
+        public bool hasPassedStart;
     }
 
     [Serializable]
@@ -35,6 +38,7 @@ public class GameStateSnapshot
     {
         public int spaceIndex;
         public int ownerPlayerIndex;
+        public int houseCount;
     }
 
     public List<PlayerEntry> players = new List<PlayerEntry>();
@@ -45,8 +49,11 @@ public class GameStateSnapshot
     /// <summary>
     /// Client'ta cagir: mevcut GameTurnManager ve PlayerObject'lardan snapshot al.
     /// propertyOwnership: spaceIndex -> ownerPlayerIndex (PropertyManager.Instance.spaceOwners)
+    /// propertyHouseCounts: spaceIndex -> houseCount (PropertyManager.Instance.spaceHouseCounts)
     /// </summary>
-    public static GameStateSnapshot Capture(IEnumerable<KeyValuePair<int, int>> propertyOwnership = null)
+    public static GameStateSnapshot Capture(
+        IEnumerable<KeyValuePair<int, int>> propertyOwnership = null,
+        IEnumerable<KeyValuePair<int, int>> propertyHouseCounts = null)
     {
         var snap = new GameStateSnapshot();
         if (GameTurnManager.Instance != null)
@@ -57,6 +64,8 @@ public class GameStateSnapshot
             snap.lastRollPlayerIndex = GameTurnManager.Instance.lastRollPlayerIndex;
             snap.isRolling = GameTurnManager.Instance.isRolling;
             snap.rollingPlayerIndex = GameTurnManager.Instance.rollingPlayerIndex;
+            snap.winnerPlayerIndex = GameTurnManager.Instance.winnerPlayerIndex;
+            snap.winnerName = GameTurnManager.Instance.winnerName ?? "";
         }
 
         snap.players.Clear();
@@ -73,17 +82,30 @@ public class GameStateSnapshot
                 currentSpaceIndex = po.currentSpaceIndex,
                 selectedCharacterIndex = po.selectedCharacterIndex,
                 selectedDiceIndex = po.selectedDiceIndex,
-                money = po.money
+                money = po.money,
+                hasPassedStart = po.hasPassedStart
             });
         }
         snap.players.Sort((a, b) => a.playerIndex.CompareTo(b.playerIndex));
 
         snap.properties.Clear();
+        var houseCountLookup = new Dictionary<int, int>();
+        if (propertyHouseCounts != null)
+        {
+            foreach (var kv in propertyHouseCounts)
+                if (kv.Value > 0)
+                    houseCountLookup[kv.Key] = kv.Value;
+        }
         if (propertyOwnership != null)
         {
             foreach (var kv in propertyOwnership)
+            {
                 if (kv.Value >= 0)
-                    snap.properties.Add(new PropertyEntry { spaceIndex = kv.Key, ownerPlayerIndex = kv.Value });
+                {
+                    int hc = houseCountLookup.TryGetValue(kv.Key, out int c) ? c : 0;
+                    snap.properties.Add(new PropertyEntry { spaceIndex = kv.Key, ownerPlayerIndex = kv.Value, houseCount = hc });
+                }
+            }
         }
 
         return snap;
