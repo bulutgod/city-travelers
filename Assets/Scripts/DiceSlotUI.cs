@@ -1,4 +1,4 @@
-﻿using TMPro;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using System;
@@ -10,8 +10,7 @@ using System;
 public class DiceSlotUI : MonoBehaviour
 {
     [Header("UI Referansları")]
-    [SerializeField] private Image diceColorImage;      // Zarın ana rengi
-    [SerializeField] private Image dot1, dot2, dot3;    // Zar noktaları (diagonal 3)
+    [SerializeField] private Image dicePreviewImage;    // Zar sprite görseli
     [SerializeField] private TextMeshProUGUI labelText; // "ALTIN", "MAVİ" vs.
     [SerializeField] private TextMeshProUGUI priceText; // "500 🪙" - kilitliyse görünür
     [SerializeField] private Image lockIcon;            // 🔒 ikonu
@@ -31,14 +30,12 @@ public class DiceSlotUI : MonoBehaviour
         _data = data;
         _onClicked = onClicked;
 
-        // Zar rengi
-        if (diceColorImage) diceColorImage.color = data.diceColor;
-
-        // Noktalar
-        Color dotCol = data.dotColor;
-        if (dot1) dot1.color = dotCol;
-        if (dot2) dot2.color = dotCol;
-        if (dot3) dot3.color = dotCol;
+        if (dicePreviewImage)
+        {
+            dicePreviewImage.sprite = data.diceSprite;
+            dicePreviewImage.color = Color.white;
+            dicePreviewImage.preserveAspect = true;
+        }
 
         // Label
         if (labelText) labelText.text = data.label;

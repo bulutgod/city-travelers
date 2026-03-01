@@ -131,6 +131,13 @@ public class GameNetworkManager : NetworkManager
         try { base.OnClientDisconnect(); } catch (System.Exception ex) { Debug.LogWarning("[Network] OnClientDisconnect base: " + ex.Message); }
         Debug.Log("[Network] Baglanti kesildi.");
 
+        // Voluntary leave: LeaveAfterDelay handles scene transition
+        if (_isVoluntaryLeave)
+        {
+            _isVoluntaryLeave = false;
+            return;
+        }
+
         // Reconnect denemesi basarisiz (lobi kapali, host yok vb.) - 3 dk cooldown
         if (SteamLobbyManager.Instance != null && SteamLobbyManager.Instance.IsReconnectingToGame)
             SteamLobbyManager.Instance.NotifyReconnectFailed();
@@ -144,7 +151,7 @@ public class GameNetworkManager : NetworkManager
         }
         catch { }
 
-        if (isInGameScene && HostMigrationManager.Instance != null && !_isVoluntaryLeave)
+        if (isInGameScene && HostMigrationManager.Instance != null)
         {
             HostMigrationManager.Instance.OnClientDisconnected();
             return;
@@ -158,23 +165,10 @@ public class GameNetworkManager : NetworkManager
             {
                 string active = SceneManager.GetActiveScene().name;
                 if (active != targetScene)
-                {
-                    if (_isVoluntaryLeave)
-                    {
-                        _isVoluntaryLeave = false;
-                        var loader = new GameObject("_VoluntaryLeaveLoader").AddComponent<VoluntaryLeaveLoader>();
-                        DontDestroyOnLoad(loader.gameObject);
-                        loader.LoadSceneClean(targetScene, gameObject);
-                    }
-                    else
-                    {
-                        SceneManager.LoadScene(targetScene);
-                    }
-                }
+                    SceneManager.LoadScene(targetScene);
             }
             catch (System.Exception ex) { Debug.LogWarning("[Network] Scene load: " + ex.Message); }
         }
-        _isVoluntaryLeave = false;
     }
 
     /// <summary>
@@ -201,11 +195,25 @@ public class GameNetworkManager : NetworkManager
     {
         yield return new WaitForSeconds(0.25f);
         try { SteamLobbyManager.Instance?.LeaveLobby(); } catch { }
+        try { SteamLobbyManager.Instance?.ClearReconnectData(); } catch { }
+
+        string targetScene = !string.IsNullOrWhiteSpace(offlineScene) ? offlineScene : fallbackLobbySceneName;
+
         if (NetworkServer.active)
             StopHost();
         else
             StopClient();
-        // _isVoluntaryLeave OnClientDisconnect'ta kullanilacak, orada sifirlanir
+
+        // StopHost/StopClient moves the NetworkManager out of DDOL when offlineScene is set.
+        // Ensure it's out of DDOL so it gets destroyed with the old scene.
+        if (gameObject != null && gameObject.scene.name == "DontDestroyOnLoad")
+            SceneManager.MoveGameObjectToScene(gameObject, SceneManager.GetActiveScene());
+
+        if (!string.IsNullOrWhiteSpace(targetScene))
+        {
+            Debug.Log($"[Network] Voluntary leave -> {targetScene}");
+            SceneManager.LoadScene(targetScene);
+        }
     }
 
     public override void OnServerAddPlayer(NetworkConnectionToClient conn)

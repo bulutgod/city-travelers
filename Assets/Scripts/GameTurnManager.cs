@@ -247,10 +247,24 @@ public class GameTurnManager : NetworkBehaviour
                                 PropertyManager.Instance.ServerCollectRent(requester, owner, rent);
                                 RpcShowRentNotification(requester.steamName, owner.steamName, rent);
                                 if (requester.money <= 0)
+                                {
                                     ServerHandleBankruptcy(requester);
+                                    AdvanceTurn();
+                                    yield break;
+                                }
                             }
                         }
-                        AdvanceTurn();
+
+                        if (!PropertyManager.Instance.HasHotel(landedIndex) && requester.money > 0)
+                        {
+                            PropertyManager.Instance.ServerSetPendingRentOrBuy(landedIndex, requester.playerIndex);
+                            if (requester.isBot)
+                                StartCoroutine(BotDecideRentOrBuyAfterDelay(requester, landedIndex, 1.5f));
+                        }
+                        else
+                        {
+                            AdvanceTurn();
+                        }
                         yield break;
                     }
                     if (PropertyManager.Instance.CanBuy(landedIndex))
@@ -264,7 +278,7 @@ public class GameTurnManager : NetworkBehaviour
                     if (PropertyManager.Instance.GetOwner(landedIndex) == requester.playerIndex)
                     {
                         int houses = PropertyManager.Instance.GetHouseCount(landedIndex);
-                        if (houses < 4 && (houses < 3 || requester.hasPassedStart))
+                        if (houses < 5 && (houses == 4 || houses < 3 || requester.hasPassedStart))
                         {
                             var spaceInfo = BoardManager.Instance != null ? BoardManager.Instance.GetSpaceInfo(landedIndex) : null;
                             if (spaceInfo != null && spaceInfo.IsPurchasable)
@@ -294,6 +308,12 @@ public class GameTurnManager : NetworkBehaviour
     }
 
     [Server]
+    public PlayerObject GetPlayerByIndexPublic(int playerIndex)
+    {
+        return GetPlayerByIndex(playerIndex);
+    }
+
+    [Server]
     private PlayerObject GetPlayerByIndex(int playerIndex)
     {
         if (GameNetworkManager.Instance == null) return null;
@@ -312,6 +332,12 @@ public class GameTurnManager : NetworkBehaviour
             StartCoroutine(BotTurnAfterDelay(bot, 1.5f));
     }
 
+    [Server]
+    public void ServerSendNotification(string message)
+    {
+        RpcShowNotification(message);
+    }
+
     [ClientRpc]
     private void RpcShowNotification(string message)
     {
@@ -324,6 +350,12 @@ public class GameTurnManager : NetworkBehaviour
     {
         LastNotification = $"{payerName} {amount} TL kira ödedi ({ownerName})";
         LastNotificationTime = Time.time;
+    }
+
+    [Server]
+    public void ServerHandleBankruptcyPublic(PlayerObject player)
+    {
+        ServerHandleBankruptcy(player);
     }
 
     [Server]
@@ -434,8 +466,14 @@ public class GameTurnManager : NetworkBehaviour
         var info = BoardManager.Instance != null ? BoardManager.Instance.GetSpaceInfo(spaceIndex) : null;
         int housePrice = info != null ? (info.housePrice > 0 ? info.housePrice : (info.purchasePrice / 2)) : 0;
         int currentHouses = PropertyManager.Instance.GetHouseCount(spaceIndex);
-        int maxAdd = 4 - currentHouses;
-        if (currentHouses == 3 && !bot.hasPassedStart) maxAdd = 0;
+        int maxAdd;
+        if (currentHouses == 4)
+            maxAdd = 1;
+        else
+        {
+            maxAdd = 4 - currentHouses;
+            if (!bot.hasPassedStart) maxAdd = Mathf.Min(maxAdd, Mathf.Max(0, 3 - currentHouses));
+        }
         int count = 0;
         if (maxAdd > 0 && housePrice > 0 && bot.money >= housePrice && Random.value > 0.3f)
         {
@@ -465,5 +503,24 @@ public class GameTurnManager : NetworkBehaviour
             count = Mathf.Min(4, 1 + (bot.money - info.purchasePrice) / housePrice);
         if (!bot.hasPassedStart) count = Mathf.Min(count, 3);
         PropertyManager.Instance.ServerTryBuyOrBuild(bot, spaceIndex, count);
+    }
+
+    [Server]
+    private IEnumerator BotDecideRentOrBuyAfterDelay(PlayerObject bot, int spaceIndex, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (bot == null || PropertyManager.Instance == null) yield break;
+        if (PropertyManager.Instance.pendingSpaceIndex != spaceIndex || PropertyManager.Instance.pendingPlayerIndex != bot.playerIndex || !PropertyManager.Instance.pendingIsRentOrBuy)
+            yield break;
+
+        var info = BoardManager.Instance != null ? BoardManager.Instance.GetSpaceInfo(spaceIndex) : null;
+        int baseRent = info != null ? info.rent : 0;
+        int rent = PropertyManager.Instance.GetRentWithHouses(spaceIndex, baseRent);
+        int buyPrice = rent * 2;
+
+        if (bot.money >= buyPrice && Random.value > 0.5f)
+            PropertyManager.Instance.ServerBuyFromOwner(bot, spaceIndex);
+        else
+            PropertyManager.Instance.ServerDeclineBuy(bot, spaceIndex);
     }
 }

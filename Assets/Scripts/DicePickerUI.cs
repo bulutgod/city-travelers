@@ -32,21 +32,20 @@ public class DicePickerUI : MonoBehaviour
     public class DiceSkinData
     {
         public string label;
-        public Color diceColor;
-        public Color dotColor;
+        public Sprite diceSprite;
         public bool isUnlocked;
-        public int coinPrice;        // Kilitliyse fiyat
+        public int coinPrice;
     }
 
     [Header("Zar Verileri")]
     public DiceSkinData[] diceSkins =
     {
-        new DiceSkinData { label = "PEMBE",  diceColor = new Color(1f,    0.24f, 0.67f), dotColor = Color.white, isUnlocked = true,  coinPrice = 0   },
-        new DiceSkinData { label = "MAV?",   diceColor = new Color(0.17f, 0.53f, 0.77f), dotColor = Color.white, isUnlocked = true,  coinPrice = 0   },
-        new DiceSkinData { label = "ALTIN",  diceColor = new Color(1f,    0.84f, 0f),    dotColor = new Color(0.2f,0.2f,0.2f), isUnlocked = false, coinPrice = 500 },
-        new DiceSkinData { label = "S?YAH",  diceColor = new Color(0.1f,  0.1f,  0.1f), dotColor = Color.white, isUnlocked = false, coinPrice = 750 },
-        new DiceSkinData { label = "YE??L",  diceColor = new Color(0.18f, 0.80f, 0.44f), dotColor = Color.white, isUnlocked = false, coinPrice = 300 },
-        new DiceSkinData { label = "KIRMIZI",diceColor = new Color(0.9f,  0.2f,  0.2f), dotColor = Color.white, isUnlocked = false, coinPrice = 400 },
+        new DiceSkinData { label = "PEMBE",   isUnlocked = true,  coinPrice = 0   },
+        new DiceSkinData { label = "MAVİ",    isUnlocked = true,  coinPrice = 0   },
+        new DiceSkinData { label = "ALTIN",   isUnlocked = false, coinPrice = 500 },
+        new DiceSkinData { label = "SİYAH",   isUnlocked = false, coinPrice = 750 },
+        new DiceSkinData { label = "YEŞİL",   isUnlocked = false, coinPrice = 300 },
+        new DiceSkinData { label = "KIRMIZI", isUnlocked = false, coinPrice = 400 },
     };
 
     // -------------------------------------------------------

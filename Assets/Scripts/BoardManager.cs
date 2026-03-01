@@ -59,6 +59,7 @@ public class BoardManager : MonoBehaviour
     [SerializeField] private bool flipped;
 
     private Transform[] _spaces;
+    private TMPro.TextMeshPro[] _rentLabels;
     private Material _runtimePlaceholderMaterial;
 
     public bool Flipped
@@ -277,6 +278,7 @@ public class BoardManager : MonoBehaviour
     private void CreateLabelsForModelSpaces()
     {
         if (_spaces == null) return;
+        _rentLabels = new TMPro.TextMeshPro[SpaceCount];
         var labelsRoot = new GameObject("Board_Labels");
         labelsRoot.transform.SetParent(transform);
         labelsRoot.transform.localPosition = Vector3.zero;
@@ -288,6 +290,8 @@ public class BoardManager : MonoBehaviour
             if (space == null) continue;
             var info = boardSpaceData != null ? boardSpaceData.GetSpace(i) : null;
             string label = info != null && !string.IsNullOrWhiteSpace(info.displayName) ? info.displayName : $"Space_{i}";
+            if (info != null && info.IsPurchasable && info.rent > 0)
+                label += $"\n{info.rent} TL";
             var labelGo = new GameObject($"Label_{i}");
             labelGo.transform.SetParent(labelsRoot.transform);
             var bounds = GetSpaceBounds(space);
@@ -315,6 +319,8 @@ public class BoardManager : MonoBehaviour
             tmp.fontSizeMax = Mathf.Max(24, labelFontSize);
             if (TMP_Settings.defaultFontAsset != null)
                 tmp.font = TMP_Settings.defaultFontAsset;
+            if (info != null && info.IsPurchasable)
+                _rentLabels[i] = tmp;
             var rt = labelGo.GetComponent<RectTransform>();
             if (rt != null)
             {
@@ -325,6 +331,30 @@ public class BoardManager : MonoBehaviour
                 float h = Mathf.Min(ex, ez) / s * 0.5f;
                 rt.sizeDelta = new Vector2(w, Mathf.Max(h, 2f));
             }
+        }
+    }
+
+    private float _rentRefreshTimer;
+
+    private void Update()
+    {
+        _rentRefreshTimer -= Time.deltaTime;
+        if (_rentRefreshTimer > 0f) return;
+        _rentRefreshTimer = 1f;
+        RefreshRentLabels();
+    }
+
+    private void RefreshRentLabels()
+    {
+        if (_rentLabels == null || boardSpaceData == null || PropertyManager.Instance == null) return;
+        for (int i = 0; i < _rentLabels.Length; i++)
+        {
+            if (_rentLabels[i] == null) continue;
+            var info = boardSpaceData.GetSpace(i);
+            if (info == null || !info.IsPurchasable) continue;
+            string name = !string.IsNullOrWhiteSpace(info.displayName) ? info.displayName : $"Space_{i}";
+            int rent = PropertyManager.Instance.GetRentWithHouses(i, info.rent);
+            _rentLabels[i].text = $"{name}\n{rent} TL";
         }
     }
 
@@ -367,6 +397,8 @@ public class BoardManager : MonoBehaviour
             string label = info != null && !string.IsNullOrWhiteSpace(info.displayName)
                 ? info.displayName
                 : index.ToString();
+            if (info != null && info.IsPurchasable && info.rent > 0)
+                label += $"\n{info.rent} TL";
             CreateLabel(go.transform, label);
         }
 

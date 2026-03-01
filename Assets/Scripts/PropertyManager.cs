@@ -27,9 +27,13 @@ public class PropertyManager : NetworkBehaviour
     [SyncVar] public int pendingSpaceIndex = -1;
     [SyncVar] public int pendingPlayerIndex = -1;
     /// <summary>
-    /// true = ev dikme teklifi (kendi mülküne indin), false = satın alma teklifi.
+    /// true = ev/otel dikme teklifi, false = satin alma teklifi.
     /// </summary>
     [SyncVar] public bool pendingIsBuild = false;
+    /// <summary>
+    /// true = kira ode veya mulku satin al secimi (otel yoksa).
+    /// </summary>
+    [SyncVar] public bool pendingIsRentOrBuy = false;
 
     private void Awake()
     {
@@ -89,17 +93,23 @@ public class PropertyManager : NetworkBehaviour
     public int GetHouseCount(int spaceIndex)
     {
         if (spaceHouseCounts.TryGetValue(spaceIndex, out int count))
-            return Mathf.Clamp(count, 0, 4);
+            return Mathf.Clamp(count, 0, 5);
         return 0;
     }
 
     /// <summary>
-    /// Ev sayısına göre kira: baseRent * 2^houseCount (0 ev=1x, 1 ev=2x, 2 ev=4x, 3 ev=8x, 4 ev=16x).
+    /// 5 = otel.
+    /// </summary>
+    public bool HasHotel(int spaceIndex) => GetHouseCount(spaceIndex) >= 5;
+
+    /// <summary>
+    /// Ev/otel sayısına göre kira: baseRent * 2^houseCount.
+    /// 0=1x, 1=2x, 2=4x, 3=8x, 4=16x, 5(otel)=32x.
     /// </summary>
     public int GetRentWithHouses(int spaceIndex, int baseRent)
     {
         int houses = GetHouseCount(spaceIndex);
-        int multiplier = 1 << houses; // 2^houses
+        int multiplier = 1 << houses;
         return baseRent * multiplier;
     }
 
@@ -137,6 +147,8 @@ public class PropertyManager : NetworkBehaviour
         pendingSpaceIndex = -1;
         pendingPlayerIndex = -1;
         Debug.Log($"[Property] P{buyer.playerIndex} bought space {spaceIndex} for {info.purchasePrice}");
+        string spaceName = info.displayName ?? $"Alan {spaceIndex}";
+        GameTurnManager.Instance?.ServerSendNotification($"{buyer.steamName} {spaceName} aldı: -{info.purchasePrice} TL");
         AdvanceTurnAfterAction(buyer);
     }
 
@@ -146,9 +158,11 @@ public class PropertyManager : NetworkBehaviour
         if (player == null) return;
         if (pendingSpaceIndex != spaceIndex || pendingPlayerIndex != player.playerIndex)
             return;
+
         pendingSpaceIndex = -1;
         pendingPlayerIndex = -1;
         pendingIsBuild = false;
+        pendingIsRentOrBuy = false;
         AdvanceTurnAfterAction(player);
     }
 
@@ -164,12 +178,13 @@ public class PropertyManager : NetworkBehaviour
             {
                 spaceOwners[p.spaceIndex] = p.ownerPlayerIndex;
                 if (p.houseCount > 0)
-                    spaceHouseCounts[p.spaceIndex] = Mathf.Clamp(p.houseCount, 0, 4);
+                    spaceHouseCounts[p.spaceIndex] = Mathf.Clamp(p.houseCount, 0, 5);
             }
         }
         pendingSpaceIndex = -1;
         pendingPlayerIndex = -1;
         pendingIsBuild = false;
+        pendingIsRentOrBuy = false;
         Debug.Log($"[Property] Restored {spaceOwners.Count} properties (with houses) from snapshot.");
     }
 
@@ -187,6 +202,75 @@ public class PropertyManager : NetworkBehaviour
         pendingSpaceIndex = spaceIndex;
         pendingPlayerIndex = playerIndex;
         pendingIsBuild = true;
+        pendingIsRentOrBuy = false;
+    }
+
+    [Server]
+    public void ServerSetPendingRentOrBuy(int spaceIndex, int playerIndex)
+    {
+        pendingSpaceIndex = spaceIndex;
+        pendingPlayerIndex = playerIndex;
+        pendingIsBuild = false;
+        pendingIsRentOrBuy = true;
+    }
+
+    [Server]
+    public void ServerPayRentOnly(PlayerObject payer, int spaceIndex)
+    {
+        if (payer == null) return;
+        if (pendingSpaceIndex != spaceIndex || pendingPlayerIndex != payer.playerIndex || !pendingIsRentOrBuy)
+            return;
+
+        var info = GetSpaceInfo(spaceIndex);
+        int baseRent = info != null ? info.rent : 0;
+        int rent = GetRentWithHouses(spaceIndex, baseRent);
+        var owner = GetOwnerPlayer(spaceIndex);
+        if (owner != null && rent > 0)
+        {
+            ServerCollectRent(payer, owner, rent);
+            GameTurnManager.Instance?.ServerSendNotification($"{payer.steamName} {rent} TL kira ödedi ({owner.steamName})");
+        }
+        if (payer.money <= 0)
+            GameTurnManager.Instance?.ServerHandleBankruptcyPublic(payer);
+        FinishPendingAndAdvance(payer);
+    }
+
+    [Server]
+    public void ServerBuyFromOwner(PlayerObject buyer, int spaceIndex)
+    {
+        if (buyer == null) return;
+        if (pendingSpaceIndex != spaceIndex || pendingPlayerIndex != buyer.playerIndex || !pendingIsRentOrBuy)
+            return;
+
+        int ownerIdx = GetOwner(spaceIndex);
+        if (ownerIdx < 0 || ownerIdx == buyer.playerIndex) { FinishPendingAndAdvance(buyer); return; }
+        if (HasHotel(spaceIndex)) { FinishPendingAndAdvance(buyer); return; }
+
+        var info = GetSpaceInfo(spaceIndex);
+        int baseRent = info != null ? info.rent : 0;
+        int rent = GetRentWithHouses(spaceIndex, baseRent);
+        int buyPrice = rent * 2;
+
+        var owner = GetOwnerPlayer(spaceIndex);
+        if (buyer.money < buyPrice) { FinishPendingAndAdvance(buyer); return; }
+
+        buyer.money -= buyPrice;
+        if (owner != null) owner.money += buyPrice;
+
+        spaceOwners[spaceIndex] = buyer.playerIndex;
+
+        string spaceName = info != null ? info.displayName : $"Alan {spaceIndex}";
+        string ownerName = owner != null ? owner.steamName : "?";
+        GameTurnManager.Instance?.ServerSendNotification($"{buyer.steamName} {spaceName} mülkünü {ownerName}'den {buyPrice} TL'ye aldı!");
+        FinishPendingAndAdvance(buyer);
+    }
+
+    [Server]
+    private PlayerObject GetOwnerPlayer(int spaceIndex)
+    {
+        int ownerIdx = GetOwner(spaceIndex);
+        if (ownerIdx < 0 || GameTurnManager.Instance == null) return null;
+        return GameTurnManager.Instance.GetPlayerByIndexPublic(ownerIdx);
     }
 
     /// <summary>
@@ -208,8 +292,7 @@ public class PropertyManager : NetworkBehaviour
         {
             if (count < 1) { FinishPendingAndAdvance(player); return; }
             int housePrice = info.housePrice > 0 ? info.housePrice : (info.purchasePrice / 2);
-            int maxSeviye = 4;
-            if (!player.hasPassedStart) maxSeviye = 3;
+            int maxSeviye = player.hasPassedStart ? 4 : 3;
             count = Mathf.Clamp(count, 1, maxSeviye);
             int evSayisi = count - 1;
             int evCost = evSayisi > 0 ? housePrice * evSayisi : 0;
@@ -222,26 +305,55 @@ public class PropertyManager : NetworkBehaviour
             pendingPlayerIndex = -1;
             pendingIsBuild = false;
             Debug.Log($"[Property] P{player.playerIndex} bought space {spaceIndex} (seviye {count}: yer + {evSayisi} ev)");
+            string name1 = info.displayName ?? $"Alan {spaceIndex}";
+            int totalCost = info.purchasePrice + evCost;
+            string msg = evSayisi > 0
+                ? $"{player.steamName} {name1} aldı + {evSayisi} ev dikti: -{totalCost} TL"
+                : $"{player.steamName} {name1} aldı: -{totalCost} TL";
+            GameTurnManager.Instance?.ServerSendNotification(msg);
             AdvanceTurnAfterAction(player);
         }
         else if (owner == player.playerIndex)
         {
             int currentHouses = GetHouseCount(spaceIndex);
-            int maxCanBuild = 4 - currentHouses;
-            if (maxCanBuild <= 0 || count <= 0) { FinishPendingAndAdvance(player); return; }
-            if (currentHouses == 3 && !player.hasPassedStart) maxCanBuild = 0;
-            else if (!player.hasPassedStart) maxCanBuild = Mathf.Min(maxCanBuild, 3);
-            count = Mathf.Clamp(count, 1, maxCanBuild);
             int housePrice = info.housePrice > 0 ? info.housePrice : (info.purchasePrice / 2);
-            if (housePrice <= 0 || player.money < housePrice * count) { FinishPendingAndAdvance(player); return; }
 
-            player.money -= housePrice * count;
-            spaceHouseCounts[spaceIndex] = currentHouses + count;
-            pendingSpaceIndex = -1;
-            pendingPlayerIndex = -1;
-            pendingIsBuild = false;
-            Debug.Log($"[Property] P{player.playerIndex} built {count} house(s) on space {spaceIndex}");
-            AdvanceTurnAfterAction(player);
+            if (currentHouses == 4)
+            {
+                if (count < 1 || housePrice <= 0 || player.money < housePrice) { FinishPendingAndAdvance(player); return; }
+                player.money -= housePrice;
+                spaceHouseCounts[spaceIndex] = 5;
+                pendingSpaceIndex = -1;
+                pendingPlayerIndex = -1;
+                pendingIsBuild = false;
+                string name2 = info.displayName ?? $"Alan {spaceIndex}";
+                Debug.Log($"[Property] P{player.playerIndex} built hotel on space {spaceIndex}");
+                GameTurnManager.Instance?.ServerSendNotification($"{player.steamName} {name2} üzerine otel dikti: -{housePrice} TL");
+                AdvanceTurnAfterAction(player);
+            }
+            else
+            {
+                int maxCanBuild = 4 - currentHouses;
+                if (maxCanBuild <= 0 || count <= 0) { FinishPendingAndAdvance(player); return; }
+                if (!player.hasPassedStart)
+                {
+                    int maxWithoutStart = Mathf.Max(0, 3 - currentHouses);
+                    maxCanBuild = Mathf.Min(maxCanBuild, maxWithoutStart);
+                }
+                if (maxCanBuild <= 0) { FinishPendingAndAdvance(player); return; }
+                count = Mathf.Clamp(count, 1, maxCanBuild);
+                if (housePrice <= 0 || player.money < housePrice * count) { FinishPendingAndAdvance(player); return; }
+
+                player.money -= housePrice * count;
+                spaceHouseCounts[spaceIndex] = currentHouses + count;
+                pendingSpaceIndex = -1;
+                pendingPlayerIndex = -1;
+                pendingIsBuild = false;
+                string name2 = info.displayName ?? $"Alan {spaceIndex}";
+                Debug.Log($"[Property] P{player.playerIndex} built {count} house(s) on space {spaceIndex}");
+                GameTurnManager.Instance?.ServerSendNotification($"{player.steamName} {name2} üzerine {count} ev dikti: -{housePrice * count} TL");
+                AdvanceTurnAfterAction(player);
+            }
         }
         else
         {
@@ -264,6 +376,7 @@ public class PropertyManager : NetworkBehaviour
         pendingSpaceIndex = -1;
         pendingPlayerIndex = -1;
         pendingIsBuild = false;
+        pendingIsRentOrBuy = false;
         AdvanceTurnAfterAction(player);
     }
 

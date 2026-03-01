@@ -28,6 +28,10 @@ public class GameHudUI : MonoBehaviour
     private Text _buyButtonText;
     private GameObject _buyPanelContent;
     private GameObject _buildPanelContent;
+    private GameObject _rentOrBuyPanelContent;
+    private Text _rentOrBuyInfoText;
+    private Button _payRentButton;
+    private Button _buyFromOwnerButton;
     private Toggle[] _houseToggles;
     private GameObject[] _houseBoxes;
     private Text[] _houseLabels;
@@ -41,6 +45,7 @@ public class GameHudUI : MonoBehaviour
     private Button _gameOverMenuButton;
     private Button _leaveGameButton;
     private bool _uiBuilt;
+    private int _lastPendingSpace = -1;
     private const float NotificationDuration = 4f;
 
     private PlayerObject _localPlayer;
@@ -197,7 +202,7 @@ public class GameHudUI : MonoBehaviour
         panelRt.anchorMax = new Vector2(0.5f, 0.5f);
         panelRt.pivot = new Vector2(0.5f, 0.5f);
         panelRt.anchoredPosition = Vector2.zero;
-        panelRt.sizeDelta = new Vector2(380, 200);
+        panelRt.sizeDelta = new Vector2(560, 220);
 
         var bg = panel.AddComponent<Image>();
         bg.color = new Color(0.1f, 0.1f, 0.15f, 0.95f);
@@ -261,6 +266,9 @@ public class GameHudUI : MonoBehaviour
         _buildPanelContent = CreateBuildHousePanelContent(panel.transform);
         _buildPanelContent.SetActive(false);
 
+        _rentOrBuyPanelContent = CreateRentOrBuyPanelContent(panel.transform);
+        _rentOrBuyPanelContent.SetActive(false);
+
         return panel;
     }
 
@@ -290,7 +298,7 @@ public class GameHudUI : MonoBehaviour
         rowRt.anchorMax = new Vector2(0.5f, 0.5f);
         rowRt.pivot = new Vector2(0.5f, 0.5f);
         rowRt.anchoredPosition = new Vector2(0, 20);
-        rowRt.sizeDelta = new Vector2(420, 110);
+        rowRt.sizeDelta = new Vector2(530, 110);
 
         var hlg = row.AddComponent<HorizontalLayoutGroup>();
         hlg.spacing = 12;
@@ -300,10 +308,10 @@ public class GameHudUI : MonoBehaviour
         hlg.childForceExpandWidth = false;
         hlg.childForceExpandHeight = false;
 
-        _houseBoxes = new GameObject[4];
-        _houseToggles = new Toggle[4];
-        _houseLabels = new Text[4];
-        for (int i = 0; i < 4; i++)
+        _houseBoxes = new GameObject[5];
+        _houseToggles = new Toggle[5];
+        _houseLabels = new Text[5];
+        for (int i = 0; i < 5; i++)
         {
             var slot = CreateHouseSlot(row.transform, i + 1);
             _houseBoxes[i] = slot;
@@ -368,6 +376,105 @@ public class GameHudUI : MonoBehaviour
         return root;
     }
 
+    private GameObject CreateRentOrBuyPanelContent(Transform parent)
+    {
+        var root = new GameObject("RentOrBuyContent");
+        root.transform.SetParent(parent, false);
+        var rootRt = root.AddComponent<RectTransform>();
+        rootRt.anchorMin = Vector2.zero;
+        rootRt.anchorMax = Vector2.one;
+        rootRt.offsetMin = Vector2.zero;
+        rootRt.offsetMax = Vector2.zero;
+
+        _rentOrBuyInfoText = CreateText(root.transform, "Info", new Vector2(0, 40), "");
+        var infoRt = _rentOrBuyInfoText.rectTransform;
+        infoRt.anchorMin = new Vector2(0.5f, 0.5f);
+        infoRt.anchorMax = new Vector2(0.5f, 0.5f);
+        infoRt.pivot = new Vector2(0.5f, 0.5f);
+        infoRt.anchoredPosition = new Vector2(0, 40);
+        infoRt.sizeDelta = new Vector2(500, 60);
+        _rentOrBuyInfoText.alignment = TextAnchor.MiddleCenter;
+        _rentOrBuyInfoText.fontSize = 18;
+
+        var skipGo = new GameObject("SkipBuyButton");
+        skipGo.transform.SetParent(root.transform, false);
+        var skipRt = skipGo.AddComponent<RectTransform>();
+        skipRt.anchorMin = new Vector2(0.5f, 0);
+        skipRt.anchorMax = new Vector2(0.5f, 0);
+        skipRt.pivot = new Vector2(0.5f, 0);
+        skipRt.anchoredPosition = new Vector2(-90, 20);
+        skipRt.sizeDelta = new Vector2(160, 40);
+        var skipImg = skipGo.AddComponent<Image>();
+        skipImg.color = new Color(0.6f, 0.3f, 0.3f, 1f);
+        _payRentButton = skipGo.AddComponent<Button>();
+        _payRentButton.targetGraphic = skipImg;
+        var skipTxt = CreateText(skipGo.transform, "Text", Vector2.zero, "GEÇ");
+        skipTxt.alignment = TextAnchor.MiddleCenter;
+        skipTxt.rectTransform.anchorMin = Vector2.zero;
+        skipTxt.rectTransform.anchorMax = Vector2.one;
+        skipTxt.rectTransform.offsetMin = Vector2.zero;
+        skipTxt.rectTransform.offsetMax = Vector2.zero;
+        _payRentButton.onClick.AddListener(OnSkipBuyFromOwnerClicked);
+
+        var buyFromOwnerGo = new GameObject("BuyFromOwnerButton");
+        buyFromOwnerGo.transform.SetParent(root.transform, false);
+        var buyFromOwnerRt = buyFromOwnerGo.AddComponent<RectTransform>();
+        buyFromOwnerRt.anchorMin = new Vector2(0.5f, 0);
+        buyFromOwnerRt.anchorMax = new Vector2(0.5f, 0);
+        buyFromOwnerRt.pivot = new Vector2(0.5f, 0);
+        buyFromOwnerRt.anchoredPosition = new Vector2(90, 20);
+        buyFromOwnerRt.sizeDelta = new Vector2(160, 40);
+        var buyFromOwnerImg = buyFromOwnerGo.AddComponent<Image>();
+        buyFromOwnerImg.color = new Color(0.2f, 0.7f, 0.3f, 1f);
+        _buyFromOwnerButton = buyFromOwnerGo.AddComponent<Button>();
+        _buyFromOwnerButton.targetGraphic = buyFromOwnerImg;
+        var buyFromOwnerTxt = CreateText(buyFromOwnerGo.transform, "Text", Vector2.zero, "SATIN AL");
+        buyFromOwnerTxt.alignment = TextAnchor.MiddleCenter;
+        buyFromOwnerTxt.rectTransform.anchorMin = Vector2.zero;
+        buyFromOwnerTxt.rectTransform.anchorMax = Vector2.one;
+        buyFromOwnerTxt.rectTransform.offsetMin = Vector2.zero;
+        buyFromOwnerTxt.rectTransform.offsetMax = Vector2.zero;
+        _buyFromOwnerButton.onClick.AddListener(OnBuyFromOwnerClicked);
+
+        return root;
+    }
+
+    private void OnSkipBuyFromOwnerClicked()
+    {
+        if (_localPlayer == null || PropertyManager.Instance == null) return;
+        int spaceIndex = PropertyManager.Instance.pendingSpaceIndex;
+        if (spaceIndex < 0) return;
+        _localPlayer.CmdDeclineBuy(spaceIndex);
+    }
+
+    private void OnBuyFromOwnerClicked()
+    {
+        if (_localPlayer == null || PropertyManager.Instance == null) return;
+        int spaceIndex = PropertyManager.Instance.pendingSpaceIndex;
+        if (spaceIndex < 0) return;
+        _localPlayer.CmdBuyFromOwner(spaceIndex);
+    }
+
+    private void RefreshRentOrBuyPanel()
+    {
+        if (_rentOrBuyInfoText == null || _localPlayer == null || PropertyManager.Instance == null || BoardManager.Instance == null) return;
+        int spaceIndex = PropertyManager.Instance.pendingSpaceIndex;
+        if (spaceIndex < 0) return;
+
+        var info = BoardManager.Instance.GetSpaceInfo(spaceIndex);
+        int baseRent = info != null ? info.rent : 0;
+        int rent = PropertyManager.Instance.GetRentWithHouses(spaceIndex, baseRent);
+        int buyPrice = rent * 2;
+        string spaceName = info != null && !string.IsNullOrWhiteSpace(info.displayName) ? info.displayName : $"Alan {spaceIndex}";
+
+        _rentOrBuyInfoText.text = $"Kira ödendi: {rent} TL\n{spaceName} mülkünü {buyPrice} TL'ye satın almak ister misin?";
+
+        if (_payRentButton != null)
+            _payRentButton.interactable = true;
+        if (_buyFromOwnerButton != null)
+            _buyFromOwnerButton.interactable = _localPlayer.money >= buyPrice;
+    }
+
     private GameObject CreateHouseSlot(Transform parent, int houseNum)
     {
         var slot = new GameObject($"HouseSlot_{houseNum}");
@@ -396,7 +503,7 @@ public class GameHudUI : MonoBehaviour
         numLbl.alignment = TextAnchor.MiddleCenter;
         numLbl.fontSize = 22;
 
-        if (houseNum == 4)
+        if (houseNum >= 4)
         {
             var restrictLbl = CreateText(box.transform, "Restrict", new Vector2(0, -12), "1 tur geçmeden\nalınamaz");
             restrictLbl.fontSize = 11;
@@ -440,7 +547,7 @@ public class GameHudUI : MonoBehaviour
 
     private void OnHouseToggleChanged(int index)
     {
-        if (_houseToggles == null || index < 0 || index >= 4) return;
+        if (_houseToggles == null || index < 0 || index >= 5) return;
         bool isOn = _houseToggles[index].isOn;
         if (isOn)
         {
@@ -449,11 +556,11 @@ public class GameHudUI : MonoBehaviour
         }
         else
         {
-            for (int i = index + 1; i < 4; i++)
+            for (int i = index + 1; i < 5; i++)
                 if (_houseToggles[i] != null) _houseToggles[i].SetIsOnWithoutNotify(false);
         }
         _selectedHouseCount = 0;
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 5; i++)
         {
             if (_houseToggles[i] != null && _houseToggles[i].isOn)
                 _selectedHouseCount = i + 1;
@@ -469,25 +576,66 @@ public class GameHudUI : MonoBehaviour
         int owner = PropertyManager.Instance.GetOwner(spaceIndex);
         bool isEmpty = owner < 0;
         int currentHouses = isEmpty ? 0 : PropertyManager.Instance.GetHouseCount(spaceIndex);
-        int maxCanAdd = isEmpty ? 4 : (4 - currentHouses);
-        bool canAdd4th = _localPlayer.hasPassedStart;
+        bool isHotelPhase = !isEmpty && currentHouses == 4;
 
-        for (int i = 0; i < 4; i++)
+        int maxSlots;
+        if (isHotelPhase)
+            maxSlots = 1;
+        else if (isEmpty)
+            maxSlots = 4;
+        else
+            maxSlots = 4 - currentHouses;
+
+        bool needAutoSelect = true;
+        for (int i = 0; i < 5; i++)
         {
-            bool canSelect = (i < maxCanAdd) && (i < 3 || canAdd4th);
+            if (_houseToggles[i] != null && _houseToggles[i].isOn) { needAutoSelect = false; break; }
+        }
+        for (int i = 0; i < 5; i++)
+        {
+            bool canSelect;
+            if (isHotelPhase)
+                canSelect = i == 0;
+            else
+            {
+                bool needsPassedStart = isEmpty ? (i >= 3) : (currentHouses + i + 1 >= 4);
+                canSelect = i < maxSlots && (!needsPassedStart || _localPlayer.hasPassedStart);
+            }
+
             if (_houseToggles[i] != null)
             {
                 _houseToggles[i].interactable = canSelect;
                 if (!canSelect) _houseToggles[i].SetIsOnWithoutNotify(false);
             }
             if (_houseLabels[i] != null)
-                _houseLabels[i].text = (isEmpty && i == 0) ? "Yer" : (i + 1).ToString();
-            var restrict = _houseBoxes[i] != null ? _houseBoxes[i].transform.Find("Box/RestrictLabel") : null;
-            if (restrict != null)
-                restrict.gameObject.SetActive(i == 3 && !canAdd4th);
+            {
+                if (isHotelPhase && i == 0)
+                    _houseLabels[i].text = "Otel";
+                else if (isEmpty && i == 0)
+                    _houseLabels[i].text = "Yer";
+                else
+                    _houseLabels[i].text = (i + 1).ToString();
+            }
+            if (_houseBoxes[i] != null)
+            {
+                _houseBoxes[i].SetActive(i < maxSlots || isHotelPhase);
+                var restrict = _houseBoxes[i].transform.Find("Box/RestrictLabel");
+                if (restrict != null)
+                {
+                    if (isHotelPhase)
+                        restrict.gameObject.SetActive(false);
+                    else
+                    {
+                        bool showRestrict = isEmpty ? (i == 3 && !_localPlayer.hasPassedStart) : (currentHouses + i + 1 == 4 && !_localPlayer.hasPassedStart);
+                        restrict.gameObject.SetActive(showRestrict);
+                    }
+                }
+            }
         }
+        if (needAutoSelect && _houseToggles[0] != null && _houseToggles[0].interactable)
+            _houseToggles[0].SetIsOnWithoutNotify(true);
         _selectedHouseCount = 0;
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 5; i++)
         {
             if (_houseToggles[i] != null && _houseToggles[i].isOn)
                 _selectedHouseCount = i + 1;
@@ -739,20 +887,40 @@ public class GameHudUI : MonoBehaviour
         _youText.text = $"You: P{_localPlayer.playerIndex} | Space: {_localPlayer.currentSpaceIndex}";
         _moneyText.text = $"Para: {_localPlayer.money}";
 
-        bool showActionPanel = PropertyManager.Instance != null &&
+        bool hasPending = PropertyManager.Instance != null &&
             PropertyManager.Instance.pendingSpaceIndex >= 0 &&
-            PropertyManager.Instance.pendingPlayerIndex == _localPlayer.playerIndex &&
-            PropertyManager.Instance.pendingIsBuild;
+            PropertyManager.Instance.pendingPlayerIndex == _localPlayer.playerIndex;
+        bool showBuild = hasPending && PropertyManager.Instance.pendingIsBuild;
+        bool showRentOrBuy = hasPending && PropertyManager.Instance.pendingIsRentOrBuy;
+        bool showAnyPanel = showBuild || showRentOrBuy;
+
         if (_buyPanel != null)
         {
-            _buyPanel.SetActive(showActionPanel);
+            _buyPanel.SetActive(showAnyPanel);
             if (_buyPanelContent != null) _buyPanelContent.SetActive(false);
-            if (_buildPanelContent != null) _buildPanelContent.SetActive(showActionPanel);
-            if (showActionPanel && BoardManager.Instance != null)
+            if (_buildPanelContent != null) _buildPanelContent.SetActive(showBuild);
+            if (_rentOrBuyPanelContent != null) _rentOrBuyPanelContent.SetActive(showRentOrBuy);
+
+            if (showBuild && BoardManager.Instance != null)
             {
                 int spaceIndex = PropertyManager.Instance.pendingSpaceIndex;
                 var info = BoardManager.Instance.GetSpaceInfo(spaceIndex);
+                if (_lastPendingSpace != spaceIndex)
+                {
+                    _lastPendingSpace = spaceIndex;
+                    for (int i = 0; i < 5; i++)
+                        if (_houseToggles != null && i < _houseToggles.Length && _houseToggles[i] != null)
+                            _houseToggles[i].SetIsOnWithoutNotify(false);
+                }
                 RefreshBuildPanel(spaceIndex, info);
+            }
+            else if (showRentOrBuy && BoardManager.Instance != null)
+            {
+                RefreshRentOrBuyPanel();
+            }
+            else
+            {
+                _lastPendingSpace = -1;
             }
         }
 

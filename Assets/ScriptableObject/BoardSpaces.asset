@@ -208,16 +208,16 @@ MonoBehaviour:
   - displayName: lyon
     color: {r: 0.69411767, g: 0.94509804, b: 0, a: 1}
     spaceType: 0
-    purchasePrice: 0
-    rent: 0
+    purchasePrice: 50
+    rent: 3
     taxAmount: 0
     startBonus: 0
     housePrice: 0
   - displayName: marsilya
     color: {r: 0.69411767, g: 0.94509804, b: 0, a: 1}
     spaceType: 0
-    purchasePrice: 0
-    rent: 0
+    purchasePrice: 70
+    rent: 5
     taxAmount: 0
     startBonus: 0
     housePrice: 0

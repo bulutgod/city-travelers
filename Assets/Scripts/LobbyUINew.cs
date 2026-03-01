@@ -24,6 +24,7 @@ public class LobbyUINew : MonoBehaviour
 
     [Header("Ana Men�")]
     [SerializeField] private Button hostButton;
+    [SerializeField] private Button findMatchButton;
     [SerializeField] private Button quitButton;
     [SerializeField] private RawImage menuAvatarImage;
     [SerializeField] private TextMeshProUGUI menuNameText;
@@ -37,9 +38,6 @@ public class LobbyUINew : MonoBehaviour
     [Header("Lobi - Alt Bar")]
     [SerializeField] private Button dicePickButton;            // "ZAR SE�" butonu
     [SerializeField] private Image dicePickButtonIcon;         // Butonun i�indeki zar g�rseli
-    [SerializeField] private Image dicePickButtonIconDot1;
-    [SerializeField] private Image dicePickButtonIconDot2;
-    [SerializeField] private Image dicePickButtonIconDot3;
     [SerializeField] private TextMeshProUGUI lobbyIdText;      // "LOB� #10977524"
     [SerializeField] private Button copyIdButton;
     [SerializeField] private TextMeshProUGUI copyButtonText;
@@ -82,17 +80,24 @@ public class LobbyUINew : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        if (!ReferenceEquals(Instance, null) && !ReferenceEquals(Instance, this) && Instance != null)
+        {
+            Debug.LogWarning($"[LobbyUI] Eski CANLI LobbyUINew komponenti siliniyor: {Instance.gameObject.name} (scene={Instance.gameObject.scene.name})");
+            Destroy(Instance);
+        }
         Instance = this;
     }
 
     private void OnEnable()
     {
-        // Hierarchy'den yeniden aktif edildi?inde duruma g�re do?ru paneli g�ster.
+        Debug.Log($"[LobbyUI] OnEnable. ServerActive={NetworkServer.active} ClientActive={NetworkClient.active}");
         if (NetworkServer.active || NetworkClient.active)
             ShowLobby();
         else
+        {
             ShowMainMenu();
+            LoadSteamProfile();
+        }
     }
 
     private void Start()
@@ -100,6 +105,7 @@ public class LobbyUINew : MonoBehaviour
         // Buton listeners
         if (hostButton == null) Debug.LogWarning("[LobbyUI] hostButton null - Inspector'da atanmamis olabilir!");
         hostButton?.onClick.AddListener(OnHostClicked);
+        findMatchButton?.onClick.AddListener(OnFindMatchClicked);
         leaveButton?.onClick.AddListener(OnLeaveClicked);
         startGameButton?.onClick.AddListener(OnStartGameClicked);
         copyIdButton?.onClick.AddListener(OnCopyIdClicked);
@@ -116,6 +122,7 @@ public class LobbyUINew : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (Instance == this) Instance = null;
         if (dicePicker != null)
             dicePicker.OnDiceSelected -= OnDiceSelected;
     }
@@ -124,13 +131,37 @@ public class LobbyUINew : MonoBehaviour
     // Steam Profil Y�kleme
     // -------------------------------------------------------
 
-    private async void LoadSteamProfile()
+    private void LoadSteamProfile()
     {
-        if (!SteamClient.IsValid) return;
+        Debug.Log($"[LobbyUI] LoadSteamProfile called. SteamValid={SteamClient.IsValid} menuNameText={menuNameText != null} menuAvatarImage={menuAvatarImage != null}");
 
-        if (menuNameText) menuNameText.text = SteamClient.Name?.ToUpper() ?? "";
+        if (!SteamClient.IsValid)
+        {
+            Debug.LogWarning("[LobbyUI] SteamClient not valid, skipping profile load.");
+            return;
+        }
 
-        var img = await SteamFriends.GetLargeAvatarAsync(SteamClient.SteamId);
+        string steamName = SteamClient.Name?.ToUpper() ?? "";
+        Debug.Log($"[LobbyUI] Steam name: '{steamName}'");
+        if (menuNameText) menuNameText.text = steamName;
+
+        StartCoroutine(LoadAvatarCoroutine());
+    }
+
+    private System.Collections.IEnumerator LoadAvatarCoroutine()
+    {
+        var task = SteamFriends.GetLargeAvatarAsync(SteamClient.SteamId);
+        while (!task.IsCompleted)
+            yield return null;
+
+        if (task.IsFaulted)
+        {
+            Debug.LogWarning($"[LobbyUI] Avatar yuklenemedi: {task.Exception?.Message}");
+            yield break;
+        }
+
+        var img = task.Result;
+        Debug.Log($"[LobbyUI] Avatar result: hasValue={img.HasValue}");
         if (img.HasValue && menuAvatarImage)
             menuAvatarImage.texture = ConvertToTexture2D(img.Value);
     }
@@ -273,14 +304,6 @@ public class LobbyUINew : MonoBehaviour
                 if (players[i].isLocalPlayer)
                 {
                     _selectedDiceIndex = players[i].selectedDiceIndex;
-                    var skin = dicePicker?.GetSkin(_selectedDiceIndex);
-                    /*if (skin != null)
-                    {
-                        if (dicePickButtonIcon) dicePickButtonIcon.color = skin.diceColor;
-                        if (dicePickButtonIconDot1) dicePickButtonIconDot1.color = skin.dotColor;
-                        if (dicePickButtonIconDot2) dicePickButtonIconDot2.color = skin.dotColor;
-                        if (dicePickButtonIconDot3) dicePickButtonIconDot3.color = skin.dotColor;
-                    }*/
                 }
             }
             else
@@ -383,16 +406,6 @@ public class LobbyUINew : MonoBehaviour
     {
         _selectedDiceIndex = index;
 
-        // "ZAR SE�" butonundaki mini zar� g�ncelle
-        var skin = dicePicker?.GetSkin(index);
-        /*if (skin != null)
-        {
-            if (dicePickButtonIcon) dicePickButtonIcon.color = skin.diceColor;
-            if (dicePickButtonIconDot1) dicePickButtonIconDot1.color = skin.dotColor;
-            if (dicePickButtonIconDot2) dicePickButtonIconDot2.color = skin.dotColor;
-            if (dicePickButtonIconDot3) dicePickButtonIconDot3.color = skin.dotColor;
-        }*/
-
         // Local oyuncunun kart�ndaki zar� g�ncelle
         var players = GetCurrentPlayers();
         foreach (var p in players)
@@ -410,7 +423,7 @@ public class LobbyUINew : MonoBehaviour
         if (player == null || dicePicker == null) return;
         var skin = dicePicker.GetSkin(player.selectedDiceIndex);
         if (skin != null)
-            card.SetDiceColor(skin.diceColor, skin.dotColor, player.selectedDiceIndex);
+            card.SetDiceSprite(skin.diceSprite);
     }
 
     // -------------------------------------------------------
@@ -433,8 +446,30 @@ public class LobbyUINew : MonoBehaviour
         SteamLobbyManager.Instance.CreateLobby();
     }
 
+    private void OnFindMatchClicked()
+    {
+        Debug.Log("[LobbyUI] OnFindMatchClicked");
+        if (NetworkServer.active || NetworkClient.active)
+        {
+            Debug.LogWarning("[LobbyUI] FindMatch atlandi: aktif baglanti var.");
+            return;
+        }
+        if (SteamLobbyManager.Instance == null)
+        {
+            Debug.LogWarning("[LobbyUI] SteamLobbyManager.Instance null!");
+            return;
+        }
+        SteamLobbyManager.Instance.FindMatch();
+    }
+
     private void OnLeaveClicked()
     {
+        if (SteamLobbyManager.Instance != null && SteamLobbyManager.Instance.IsMatchmaking)
+        {
+            SteamLobbyManager.Instance.CancelMatchmaking();
+            ShowMainMenu();
+            return;
+        }
         SteamLobbyManager.Instance?.LeaveLobby();
         if (NetworkServer.active) GameNetworkManager.Instance?.StopHost();
         else GameNetworkManager.Instance?.StopClient();

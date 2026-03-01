@@ -24,7 +24,9 @@ public class SteamLobbyManager : MonoBehaviour
     public System.Action OnHostMigrationFinished;
     public bool InLobby => _inLobby;
 
-    // SampleScene'den (oyun yeniden acildiginda) kullanilir
+    private bool _isMatchmaking = false;
+    public bool IsMatchmaking => _isMatchmaking;
+
     private bool _reconnectToLastLobbyRequested = false;
     /// <summary>Reconnect akisinda miyiz (sunucu GameScene'de, Ready sahne yuklenince cagrilacak).</summary>
     public bool IsReconnectingToGame => _reconnectToLastLobbyRequested;
@@ -153,6 +155,89 @@ public class SteamLobbyManager : MonoBehaviour
         Debug.Log($"[Steam] Lobi olu�turuldu ve metadata yaz�ld�. ID: {lobby.Value.Id}");
     }
 
+    /// <summary>
+    /// Matchmaking: Acik lobi ara, bulursa katil, bulamazsa public lobi ac.
+    /// </summary>
+    public async void FindMatch()
+    {
+        if (!SteamClient.IsValid)
+        {
+            Debug.LogWarning("[Steam] FindMatch: SteamClient gecersiz.");
+            return;
+        }
+        if (NetworkServer.active || NetworkClient.active)
+        {
+            Debug.LogWarning("[Steam] FindMatch: Zaten aktif baglanti var.");
+            return;
+        }
+        if (_inLobby)
+        {
+            Debug.LogWarning("[Steam] FindMatch: Zaten lobidesin.");
+            return;
+        }
+
+        _isMatchmaking = true;
+        Debug.Log("[Steam] Matchmaking: Acik lobi araniyor...");
+
+        try
+        {
+            var lobbies = await SteamMatchmaking.LobbyList
+                .WithKeyValue("GameName", "RichContractor")
+                .WithKeyValue("LobbyType", "Matchmaking")
+                .WithSlotsAvailable(1)
+                .WithMaxResults(10)
+                .RequestAsync();
+
+            if (lobbies != null && lobbies.Length > 0)
+            {
+                var target = lobbies[0];
+                Debug.Log($"[Steam] Matchmaking: Lobi bulundu! ID={target.Id} Uye={target.MemberCount}/{target.MaxMembers}");
+                _isMatchmaking = false;
+                JoinLobby(target.Id);
+                return;
+            }
+
+            Debug.Log("[Steam] Matchmaking: Uygun lobi bulunamadi, yeni public lobi olusturuluyor...");
+            await CreateMatchmakingLobby();
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogWarning($"[Steam] Matchmaking hatasi: {ex.Message}");
+            _isMatchmaking = false;
+        }
+    }
+
+    public void CancelMatchmaking()
+    {
+        if (!_isMatchmaking) return;
+        _isMatchmaking = false;
+        if (_inLobby)
+        {
+            LeaveLobby();
+            if (NetworkServer.active) GameNetworkManager.Instance?.StopHost();
+        }
+        Debug.Log("[Steam] Matchmaking iptal edildi.");
+    }
+
+    private async Task CreateMatchmakingLobby()
+    {
+        Lobby? lobby = await SteamMatchmaking.CreateLobbyAsync(maxPlayers);
+        if (!lobby.HasValue)
+        {
+            Debug.LogError("[Steam] Matchmaking lobi olusturulamadi!");
+            _isMatchmaking = false;
+            return;
+        }
+
+        lobby.Value.SetPublic();
+        lobby.Value.SetJoinable(true);
+        lobby.Value.SetData("HostSteamId", SteamClient.SteamId.ToString());
+        lobby.Value.SetData("GameName", "RichContractor");
+        lobby.Value.SetData("LobbyType", "Matchmaking");
+
+        Debug.Log($"[Steam] Matchmaking lobi olusturuldu (public). ID: {lobby.Value.Id}");
+    }
+
     public async void JoinLobby(SteamId lobbyId)
     {
         Debug.Log($"[Steam] Lobiye kat�l�n�yor: {lobbyId}");
@@ -167,6 +252,18 @@ public class SteamLobbyManager : MonoBehaviour
         _inLobby = false;
         _weJustCreatedLobby = false;
         Debug.Log("[Steam] Lobiden ayr�ld�.");
+    }
+
+    /// <summary>
+    /// Voluntary leave sirasinda reconnect verilerini temizler.
+    /// PlayerPrefs'teki lobi/host bilgisi silinir, reconnect bayraklari sifirlanir.
+    /// </summary>
+    public void ClearReconnectData()
+    {
+        _reconnectToLastLobbyRequested = false;
+        _leaveAfterReconnectRequested = false;
+        ClearLastLobbyPrefs();
+        Debug.Log("[Steam] Reconnect verileri temizlendi (voluntary leave).");
     }
 
     public bool HasLastLobbyToReconnect()
@@ -250,6 +347,7 @@ public class SteamLobbyManager : MonoBehaviour
         if (result != Result.OK)
         {
             Debug.LogError($"[Steam] OnLobbyCreated hatas�: {result}");
+            _isMatchmaking = false;
             return;
         }
 
@@ -277,6 +375,7 @@ public class SteamLobbyManager : MonoBehaviour
     {
         CurrentLobby = lobby;
         _inLobby = true;
+        _isMatchmaking = false;
         Debug.Log($"[Steam] Lobiye girildi: {lobby.Id}");
 
         // Build'de uygulama yeniden acildiginda SampleScene'den reconnect icin gerekli.

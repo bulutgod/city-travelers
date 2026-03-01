@@ -20,6 +20,27 @@ public class SimplePawnVisualizer : MonoBehaviour
 
     private readonly Dictionary<uint, PawnView> _pawns = new Dictionary<uint, PawnView>();
 
+    /// <summary>Build'de pembe gorunmemesi icin URP/Built-in shader ile material; palet rengine gore cache.</summary>
+    private static Material[] _cachedPawnMaterials;
+
+    private static Material GetPawnMaterial(int playerIndex)
+    {
+        if (_cachedPawnMaterials == null)
+            _cachedPawnMaterials = new Material[Palette.Length];
+        int i = Mathf.Abs(playerIndex) % Palette.Length;
+        if (_cachedPawnMaterials[i] != null)
+            return _cachedPawnMaterials[i];
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit")
+            ?? Shader.Find("Universal Render Pipeline/Simple Lit")
+            ?? Shader.Find("Standard")
+            ?? Shader.Find("Legacy Shaders/Diffuse");
+        if (shader == null) return null;
+        var mat = new Material(shader);
+        mat.color = Palette[i];
+        _cachedPawnMaterials[i] = mat;
+        return mat;
+    }
+
     private static readonly Color[] Palette =
     {
         new Color(0.95f, 0.25f, 0.25f),
@@ -69,8 +90,14 @@ public class SimplePawnVisualizer : MonoBehaviour
             pawnGo.transform.localScale = new Vector3(0.65f, 0.65f, 0.65f);
 
             var renderer = pawnGo.GetComponent<Renderer>();
-            if (renderer != null && renderer.material != null)
-                renderer.material.color = ColorByPlayerIndex(player.playerIndex);
+            if (renderer != null)
+            {
+                var mat = GetPawnMaterial(player.playerIndex);
+                if (mat != null)
+                    renderer.sharedMaterial = mat;
+                else if (renderer.material != null)
+                    renderer.material.color = ColorByPlayerIndex(player.playerIndex);
+            }
 
             var labelGo = new GameObject("Name");
             labelGo.transform.SetParent(pawnGo.transform, false);

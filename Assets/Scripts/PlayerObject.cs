@@ -89,6 +89,20 @@ public class PlayerObject : NetworkBehaviour
             PropertyManager.Instance.ServerTryBuyOrBuild(this, spaceIndex, count);
     }
 
+    [Command]
+    public void CmdPayRentOnly(int spaceIndex)
+    {
+        if (PropertyManager.Instance != null)
+            PropertyManager.Instance.ServerPayRentOnly(this, spaceIndex);
+    }
+
+    [Command]
+    public void CmdBuyFromOwner(int spaceIndex)
+    {
+        if (PropertyManager.Instance != null)
+            PropertyManager.Instance.ServerBuyFromOwner(this, spaceIndex);
+    }
+
     /// <summary>
     /// Oyuncu oyun icinde "Terket"e bastiginda cagirilir; sunucu state'i 3 dk tutmaz.
     /// </summary>
