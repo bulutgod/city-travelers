@@ -22,12 +22,16 @@ public class LobbyUINew : MonoBehaviour
     [SerializeField] private GameObject mainMenuPanel;
     [SerializeField] private GameObject lobbyPanel;
 
-    [Header("Ana Men�")]
+    [Header("Ana Menü")]
     [SerializeField] private Button hostButton;
     [SerializeField] private Button findMatchButton;
     [SerializeField] private Button quitButton;
+    [SerializeField] private Button settingsButton;
     [SerializeField] private RawImage menuAvatarImage;
     [SerializeField] private TextMeshProUGUI menuNameText;
+    [Tooltip("Ana menü avatar maske: 0.5=daire, küçük değer=açık yeşili doldurur. AvatarMaskConfig varsa o kullanılır.")]
+    [Range(0.01f, 0.5f)]
+    [SerializeField] private float menuAvatarCornerRadius = 0.15f;
 
     [Header("Lobi - �st Bilgi")]
     [SerializeField] private TextMeshProUGUI playerCountText;  // "2 / 4 OYUNCU"
@@ -41,7 +45,9 @@ public class LobbyUINew : MonoBehaviour
     [SerializeField] private TextMeshProUGUI lobbyIdText;      // "LOB� #10977524"
     [SerializeField] private Button copyIdButton;
     [SerializeField] private TextMeshProUGUI copyButtonText;
-    [SerializeField] private Button startGameButton;           // Sadece host g�r�r
+    [SerializeField] private Button startGameButton;           // Sadece host görür
+    [SerializeField] private Button addBotButton;             // Sadece host görür
+    [SerializeField] private Button readyButton;              // "Hazırım" toggle
     [SerializeField] private Button leaveButton;
 
     [Header("Zar Picker Modal")]
@@ -108,16 +114,21 @@ public class LobbyUINew : MonoBehaviour
         findMatchButton?.onClick.AddListener(OnFindMatchClicked);
         leaveButton?.onClick.AddListener(OnLeaveClicked);
         startGameButton?.onClick.AddListener(OnStartGameClicked);
+        addBotButton?.onClick.AddListener(OnAddBotClicked);
+        readyButton?.onClick.AddListener(OnReadyClicked);
         copyIdButton?.onClick.AddListener(OnCopyIdClicked);
         quitButton?.onClick.AddListener(() => Application.Quit());
         dicePickButton?.onClick.AddListener(OnDicePickClicked);
+        settingsButton?.onClick.AddListener(OnSettingsClicked);
 
-        // Zar se�im callback
+        // Zar seçim callback
         if (dicePicker != null)
             dicePicker.OnDiceSelected += OnDiceSelected;
 
         ShowMainMenu();
         LoadSteamProfile();
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlayMenuMusic();
     }
 
     private void OnDestroy()
@@ -145,6 +156,7 @@ public class LobbyUINew : MonoBehaviour
         Debug.Log($"[LobbyUI] Steam name: '{steamName}'");
         if (menuNameText) menuNameText.text = steamName;
 
+        AvatarCircleMask.ApplyTo(menuAvatarImage, GetMenuAvatarCornerRadius());
         StartCoroutine(LoadAvatarCoroutine());
     }
 
@@ -163,7 +175,12 @@ public class LobbyUINew : MonoBehaviour
         var img = task.Result;
         Debug.Log($"[LobbyUI] Avatar result: hasValue={img.HasValue}");
         if (img.HasValue && menuAvatarImage)
+        {
             menuAvatarImage.texture = ConvertToTexture2D(img.Value);
+            menuAvatarImage.color = Color.white;
+            // Maske + texture material'a yazilir (pembe hatasini onler)
+            AvatarCircleMask.ApplyTo(menuAvatarImage, GetMenuAvatarCornerRadius());
+        }
     }
 
     // -------------------------------------------------------
@@ -175,6 +192,16 @@ public class LobbyUINew : MonoBehaviour
         if (mainMenuPanel) mainMenuPanel.SetActive(true);
         if (lobbyPanel) lobbyPanel.SetActive(false);
         StopRefresh();
+        // Sol üst avatar oval çerçeveye tam otursun diye maske her menü açılışında uygulanır
+        if (menuAvatarImage != null)
+            AvatarCircleMask.ApplyTo(menuAvatarImage, GetMenuAvatarCornerRadius());
+    }
+
+    private float GetMenuAvatarCornerRadius()
+    {
+        if (menuAvatarImage == null) return 0.15f;
+        var config = menuAvatarImage.GetComponent<AvatarMaskConfig>();
+        return config != null ? config.CornerRadius : menuAvatarCornerRadius;
     }
 
     public void ShowLobby()
@@ -191,9 +218,11 @@ public class LobbyUINew : MonoBehaviour
             }
         }
 
-        // Host kontrol�: start butonu sadece host'ta g�r�n�r
+        // Host kontrolü: start ve bot ekle butonları sadece host'ta görünür
         bool isHost = NetworkServer.active;
         if (startGameButton) startGameButton.gameObject.SetActive(isHost);
+        if (addBotButton) addBotButton.gameObject.SetActive(isHost);
+        if (readyButton) readyButton.gameObject.SetActive(true);
 
         // Karakter ok butonlar� zaten PlayerCardUI i�inde y�netiliyor
 
@@ -290,7 +319,7 @@ public class LobbyUINew : MonoBehaviour
             lobbyIdText.text = "LOBI #" + shortId;
         }
 
-        // Kartlar� g�ncelle
+        // Kartları güncelle
         for (int i = 0; i < playerCards.Length; i++)
         {
             if (playerCards[i] == null) continue;
@@ -299,7 +328,7 @@ public class LobbyUINew : MonoBehaviour
             {
                 playerCards[i].SetupWithPlayer(players[i]);
 
-                // Local oyuncunun kart�na zar rengini uygula
+                // Local oyuncunun kartına zar rengini uygula
                 ApplyDiceToCard(playerCards[i], players[i]);
                 if (players[i].isLocalPlayer)
                 {
@@ -310,6 +339,31 @@ public class LobbyUINew : MonoBehaviour
             {
                 playerCards[i].SetEmpty();
             }
+        }
+
+        // Hazır butonu metni
+        if (readyButton != null)
+        {
+            PlayerObject localPlayer = null;
+            foreach (var p in players) { if (p != null && p.isLocalPlayer) { localPlayer = p; break; } }
+            var txt = readyButton.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (txt != null)
+                txt.text = localPlayer != null && localPlayer.isReady ? "HAZIR DEĞİL" : "HAZIRIM";
+        }
+
+        // Start butonu: en az 2 oyuncu ve hepsi hazır (sadece host)
+        bool isHost = NetworkServer.active;
+        if (startGameButton != null && isHost)
+        {
+            bool allReady = players.Count >= 2;
+            if (allReady)
+            {
+                foreach (var p in players)
+                {
+                    if (p == null || !p.isReady) { allReady = false; break; }
+                }
+            }
+            startGameButton.interactable = allReady;
         }
     }
 
@@ -324,8 +378,7 @@ public class LobbyUINew : MonoBehaviour
 
         if (NetworkServer.active && GameNetworkManager.Instance != null)
         {
-            var serverList = GameNetworkManager.Instance.GetConnectedPlayers();
-            foreach (var p in serverList)
+            foreach (var p in GameNetworkManager.Instance.GetAllActivePlayers())
                 if (p != null && !list.Contains(p)) list.Add(p);
         }
 
@@ -399,6 +452,7 @@ public class LobbyUINew : MonoBehaviour
 
     private void OnDicePickClicked()
     {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
         dicePicker?.Show(_selectedDiceIndex);
     }
 
@@ -432,6 +486,7 @@ public class LobbyUINew : MonoBehaviour
 
     private void OnHostClicked()
     {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
         Debug.Log("[LobbyUI] OnHostClicked");
         if (NetworkServer.active || NetworkClient.active)
         {
@@ -448,6 +503,7 @@ public class LobbyUINew : MonoBehaviour
 
     private void OnFindMatchClicked()
     {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
         Debug.Log("[LobbyUI] OnFindMatchClicked");
         if (NetworkServer.active || NetworkClient.active)
         {
@@ -464,6 +520,7 @@ public class LobbyUINew : MonoBehaviour
 
     private void OnLeaveClicked()
     {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
         if (SteamLobbyManager.Instance != null && SteamLobbyManager.Instance.IsMatchmaking)
         {
             SteamLobbyManager.Instance.CancelMatchmaking();
@@ -476,8 +533,37 @@ public class LobbyUINew : MonoBehaviour
         ShowMainMenu();
     }
 
+    private void OnReadyClicked()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
+        var players = GetCurrentPlayers();
+        foreach (var p in players)
+        {
+            if (p != null && p.isLocalPlayer)
+            {
+                p.CmdSetReady(!p.isReady);
+                break;
+            }
+        }
+    }
+
+    private void OnAddBotClicked()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
+        var players = GetCurrentPlayers();
+        foreach (var p in players)
+        {
+            if (p != null && p.isLocalPlayer)
+            {
+                p.CmdRequestAddBot();
+                break;
+            }
+        }
+    }
+
     private void OnStartGameClicked()
     {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
         if (!NetworkServer.active) return;
         Debug.Log("[LobbyUI] Oyun ba�lat�l�yor...");
         string gameScene = GameNetworkManager.Instance != null ? GameNetworkManager.Instance.GameSceneName : "GameScene";
@@ -486,8 +572,15 @@ public class LobbyUINew : MonoBehaviour
         NetworkManager.singleton.ServerChangeScene(gameScene);
     }
 
+    private void OnSettingsClicked()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
+        if (SettingsUI.Instance != null) SettingsUI.Instance.Show();
+    }
+
     private void OnCopyIdClicked()
     {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
         var lobby = SteamLobbyManager.Instance?.CurrentLobby;
         if (lobby.HasValue)
         {

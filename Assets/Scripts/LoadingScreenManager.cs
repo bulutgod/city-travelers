@@ -37,6 +37,8 @@ public class LoadingScreenManager : MonoBehaviour
 
     private void Start()
     {
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.StopMusic();
         BuildUI();
         StartCoroutine(LoadSequence());
     }

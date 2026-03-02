@@ -410,13 +410,15 @@ public class BoardManager : MonoBehaviour
         if (placeholderMaterial != null) return placeholderMaterial;
         if (_runtimePlaceholderMaterial != null) return _runtimePlaceholderMaterial;
 
-        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-        if (shader == null) shader = Shader.Find("Standard");
-        if (shader == null) shader = Shader.Find("Unlit/Color");
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit")
+            ?? Shader.Find("Universal Render Pipeline/Simple Lit")
+            ?? Shader.Find("Standard")
+            ?? Shader.Find("Legacy Shaders/Diffuse");
         if (shader == null) return null;
 
         _runtimePlaceholderMaterial = new Material(shader);
         _runtimePlaceholderMaterial.name = "BoardRuntimePlaceholderMat";
+        _runtimePlaceholderMaterial.color = Color.white;
         return _runtimePlaceholderMaterial;
     }
 

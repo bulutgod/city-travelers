@@ -37,6 +37,16 @@ public class GameNetworkManager : NetworkManager
         public bool hasPassedStart;
     }
 
+    private struct PendingBotSpawn
+    {
+        public int playerIndex;
+        public string steamName;
+        public int selectedCharacterIndex;
+        public int selectedDiceIndex;
+    }
+
+    private readonly List<PendingBotSpawn> _pendingBotsForGameScene = new List<PendingBotSpawn>();
+
     #region Mirror Lifecycle
 
     public override void Awake()
@@ -407,6 +417,45 @@ public class GameNetworkManager : NetworkManager
     }
 
     [Server]
+    public void ServerAddBot()
+    {
+        string activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        string gameScene = !string.IsNullOrEmpty(gameSceneName) ? gameSceneName : "GameScene";
+        if (activeScene == gameScene)
+        {
+            Debug.LogWarning("[Network] Bot lobide eklenebilir, oyun icinde degil.");
+            return;
+        }
+
+        int idx = GetNextPlayerIndex();
+        const int maxPlayers = 4;
+        if (idx >= maxPlayers)
+        {
+            Debug.LogWarning($"[Network] Maksimum {maxPlayers} oyuncu. Bot eklenemedi.");
+            return;
+        }
+
+        var botGo = Instantiate(playerPrefab);
+        var bot = botGo.GetComponent<PlayerObject>();
+        if (bot == null) { Destroy(botGo); return; }
+
+        bot.isBot = true;
+        bot.playerIndex = idx;
+        bot.steamName = $"Bot {idx + 1}";
+        bot.steamId = 0;
+        bot.currentSpaceIndex = 0;
+        bot.money = 1500;
+        bot.selectedCharacterIndex = idx % 5;
+        bot.selectedDiceIndex = 0;
+        bot.hasPassedStart = false;
+        bot.isReady = true;
+
+        NetworkServer.Spawn(botGo);
+        _botPlayers.Add(bot);
+        Debug.Log($"[Network] Lobiye bot eklendi: P{idx} ({bot.steamName})");
+    }
+
+    [Server]
     private System.Collections.IEnumerator SpawnBotAfterDisconnect(ulong steamId, PlayerObject oldPlayer)
     {
         yield return null;
@@ -437,8 +486,30 @@ public class GameNetworkManager : NetworkManager
 
     public override void OnServerChangeScene(string newSceneName)
     {
+        string gameScene = !string.IsNullOrEmpty(gameSceneName) ? gameSceneName : "GameScene";
+        if (!string.IsNullOrEmpty(newSceneName) && newSceneName == gameScene)
+        {
+            _pendingBotsForGameScene.Clear();
+            foreach (var b in _botPlayers)
+            {
+                if (b != null)
+                {
+                    _pendingBotsForGameScene.Add(new PendingBotSpawn
+                    {
+                        playerIndex = b.playerIndex,
+                        steamName = b.steamName,
+                        selectedCharacterIndex = b.selectedCharacterIndex,
+                        selectedDiceIndex = b.selectedDiceIndex
+                    });
+                }
+            }
+            _botPlayers.Clear();
+            if (_pendingBotsForGameScene.Count > 0)
+                Debug.Log($"[Network] {_pendingBotsForGameScene.Count} bot oyun sahnesinde yeniden spawn edilecek.");
+        }
+
         base.OnServerChangeScene(newSceneName);
-        if (string.IsNullOrEmpty(newSceneName) || newSceneName != gameSceneName) return;
+        if (string.IsNullOrEmpty(newSceneName) || newSceneName != gameScene) return;
         _allowedPlayerSteamIds.Clear();
         foreach (var conn in NetworkServer.connections.Values)
         {
@@ -449,6 +520,44 @@ public class GameNetworkManager : NetworkManager
         if (SteamClient.IsValid)
             _allowedPlayerSteamIds.Add(SteamClient.SteamId.Value);
         Debug.Log($"[Network] Oyun sahnesi icin izinli oyuncu sayisi: {_allowedPlayerSteamIds.Count}");
+    }
+
+    public override void OnServerSceneChanged(string sceneName)
+    {
+        base.OnServerSceneChanged(sceneName);
+        string gameScene = !string.IsNullOrEmpty(gameSceneName) ? gameSceneName : "GameScene";
+        if (string.IsNullOrEmpty(sceneName) || sceneName != gameScene || _pendingBotsForGameScene.Count == 0)
+            return;
+
+        foreach (var info in _pendingBotsForGameScene)
+        {
+            if (IsIndexInUse(info.playerIndex)) continue;
+            var botGo = Instantiate(playerPrefab);
+            var bot = botGo.GetComponent<PlayerObject>();
+            if (bot == null) { Destroy(botGo); continue; }
+
+            bot.isBot = true;
+            bot.playerIndex = info.playerIndex;
+            bot.steamName = info.steamName;
+            bot.steamId = 0;
+            bot.currentSpaceIndex = 0;
+            bot.money = 1500;
+            bot.selectedCharacterIndex = info.selectedCharacterIndex;
+            bot.selectedDiceIndex = info.selectedDiceIndex;
+            bot.hasPassedStart = false;
+            bot.isReady = true;
+
+            NetworkServer.Spawn(botGo);
+            _botPlayers.Add(bot);
+            Debug.Log($"[Network] Bot oyun sahnesinde spawn edildi: P{info.playerIndex} ({info.steamName})");
+        }
+        _pendingBotsForGameScene.Clear();
+
+        if (GameTurnManager.Instance != null)
+        {
+            foreach (var b in _botPlayers)
+                if (b != null) GameTurnManager.Instance.ServerNotifyBotSpawned(b);
+        }
     }
 
     #endregion

@@ -4,6 +4,15 @@ using Mirror;
 using UnityEngine;
 
 /// <summary>
+/// Sans veya Kasa kartinin metni ve para etkisi.
+/// </summary>
+public struct ChanceCard
+{
+    public string text;
+    public int amount; // pozitif = kazan, negatif = ode
+}
+
+/// <summary>
 /// Oyun tur yonetimi: host zar atar, aktif oyuncuyu ilerletir ve sirayi devreder.
 /// Tahta modeli hazir olmasa bile yalnizca indeks uzerinden calisir.
 /// </summary>
@@ -16,6 +25,15 @@ public class GameTurnManager : NetworkBehaviour
     [SerializeField] private int minDice = 1;
     [SerializeField] private int maxDice = 6;
     [SerializeField] private float moveStepDelay = 0.16f;
+
+    [Header("Tur Zamani")]
+    [Tooltip("Her sira icin sure (saniye). 0 = sinirsiz.")]
+    [SerializeField] private float turnTimeLimit = 60f;
+    [SyncVar] private double _turnStartNetworkTime;
+
+    [Header("Oyun Suresi (board merkez)")]
+    [SyncVar] public float gameDurationSeconds;  // 0=secilmedi, 1200=20dk, 3600=1sa, 7200=2sa
+    [SyncVar] public double gameStartNetworkTime;
 
     [Header("Tahta Ayarlari")]
     [SerializeField] private int boardSpaceCount = 38;
@@ -35,6 +53,30 @@ public class GameTurnManager : NetworkBehaviour
 
     public static string LastNotification { get; private set; }
     public static float LastNotificationTime { get; private set; }
+
+    [Server]
+    public void ServerSetGameDuration(float seconds)
+    {
+        if (gameDurationSeconds > 0f) return;
+        gameDurationSeconds = seconds;
+        gameStartNetworkTime = NetworkTime.time;
+    }
+
+    public float GetRemainingGameTime()
+    {
+        if (gameDurationSeconds <= 0f) return -1f;
+        double elapsed = NetworkTime.time - gameStartNetworkTime;
+        return Mathf.Max(0f, (float)(gameDurationSeconds - elapsed));
+    }
+
+    /// <summary>Kalan tur suresi (saniye). turnTimeLimit 0 ise -1 doner.</summary>
+    public float GetRemainingTurnTime()
+    {
+        if (turnTimeLimit <= 0f) return -1f;
+        if (isRolling) return turnTimeLimit;
+        double elapsed = NetworkTime.time - _turnStartNetworkTime;
+        return Mathf.Max(0f, (float)(turnTimeLimit - elapsed));
+    }
 
     private void Awake()
     {
@@ -110,6 +152,7 @@ public class GameTurnManager : NetworkBehaviour
     [Server]
     private void InitializeMatch(List<PlayerObject> players)
     {
+        RpcPlayGameMusic();
         if (boardSpaceCount <= 0) boardSpaceCount = 38;
         turnNumber = 1;
         lastRollValue = 0;
@@ -121,6 +164,7 @@ public class GameTurnManager : NetworkBehaviour
             if (p != null) p.currentSpaceIndex = 0;
 
         currentTurnPlayerIndex = players[0].playerIndex;
+        _turnStartNetworkTime = NetworkTime.time;
         Debug.Log($"[Turn] Basladi. Ilk oyuncu index: {currentTurnPlayerIndex}");
     }
 
@@ -162,6 +206,7 @@ public class GameTurnManager : NetworkBehaviour
     {
         isRolling = true;
         rollingPlayerIndex = requester.playerIndex;
+        RpcPlayDiceRoll();
 
         int steps = Mathf.Max(1, roll);
         float stepDelay = Mathf.Max(0.03f, moveStepDelay);
@@ -182,6 +227,7 @@ public class GameTurnManager : NetworkBehaviour
             {
                 requester.hasPassedStart = true;
                 requester.money += startBonus;
+                RpcPlayCoinGain();
                 RpcShowNotification($"{requester.steamName} Start'tan geçti: +{startBonus} TL");
             }
             yield return new WaitForSeconds(stepDelay);
@@ -195,6 +241,7 @@ public class GameTurnManager : NetworkBehaviour
 
         isRolling = false;
         rollingPlayerIndex = -1;
+        RpcPlayDiceLand();
 
         var info = BoardManager.Instance != null ? BoardManager.Instance.GetSpaceInfo(landedIndex) : null;
         var spaceType = info != null ? info.spaceType : SpaceInfo.SpaceType.Normal;
@@ -215,14 +262,17 @@ public class GameTurnManager : NetworkBehaviour
                 break;
             case SpaceInfo.SpaceType.Chance:
             case SpaceInfo.SpaceType.Community:
-                // Basit: rastgele -100 ile +150 arası (1500 TL baz alinarak)
-                int amount = Random.Range(-100, 151);
-                if (amount != 0)
+                var card = GetRandomCard(spaceType == SpaceInfo.SpaceType.Chance);
+                if (card.amount != 0)
                 {
-                    requester.money = Mathf.Max(0, requester.money + amount);
-                    RpcShowNotification($"{requester.steamName} {(amount > 0 ? "+" : "")}{amount} TL");
+                    requester.money = Mathf.Max(0, requester.money + card.amount);
+                    RpcShowCardNotification(card.text, requester.steamName, card.amount);
                     if (requester.money <= 0)
                         ServerHandleBankruptcy(requester);
+                }
+                else
+                {
+                    RpcShowCardNotification(card.text, requester.steamName, 0);
                 }
                 break;
             case SpaceInfo.SpaceType.Jail:
@@ -338,11 +388,111 @@ public class GameTurnManager : NetworkBehaviour
         RpcShowNotification(message);
     }
 
+    private static readonly string[] QuickChatMessages =
+    {
+        "Zar at!", "Bekle", "Hadi", "GG", "Şanslı ol!", "Hızlı oyna"
+    };
+
+    [Server]
+    public void ServerBroadcastQuickChat(string playerName, int messageIndex)
+    {
+        if (messageIndex < 0 || messageIndex >= QuickChatMessages.Length) return;
+        RpcShowQuickChat(playerName, messageIndex);
+    }
+
+    [ClientRpc]
+    private void RpcShowQuickChat(string playerName, int messageIndex)
+    {
+        if (messageIndex < 0 || messageIndex >= QuickChatMessages.Length) return;
+        string msg = $"{playerName}: {QuickChatMessages[messageIndex]}";
+        LastNotification = msg;
+        LastNotificationTime = Time.time;
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayNotification();
+    }
+
+    [ClientRpc]
+    private void RpcPlayGameMusic()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayGameMusic();
+    }
+
+    [ClientRpc]
+    private void RpcPlayDiceRoll()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayDiceRoll();
+    }
+
+    [ClientRpc]
+    private void RpcPlayDiceLand()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayDiceLand();
+    }
+
+    [ClientRpc]
+    private void RpcPlayCoinGain()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayCoinGain();
+    }
+
+    [ClientRpc]
+    private void RpcPlayBankrupt()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayBankrupt();
+    }
+
     [ClientRpc]
     private void RpcShowNotification(string message)
     {
         LastNotification = message;
         LastNotificationTime = Time.time;
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayNotification();
+    }
+
+    private static readonly ChanceCard[] ChanceCards =
+    {
+        new ChanceCard { text = "Banka size faiz odedi.", amount = 50 },
+        new ChanceCard { text = "Dogum gunu hediyesi! Her oyuncudan 10 TL al.", amount = 30 },
+        new ChanceCard { text = "Vergi iadesi.", amount = 100 },
+        new ChanceCard { text = "Yarisma kazandiniz!", amount = 150 },
+        new ChanceCard { text = "Hastane faturasi.", amount = -50 },
+        new ChanceCard { text = "Okul ucreti.", amount = -80 },
+        new ChanceCard { text = "Yol tamiri.", amount = -40 },
+        new ChanceCard { text = "Sans size guldu!", amount = 75 },
+        new ChanceCard { text = "Kayip cuzdan buldunuz.", amount = 60 },
+        new ChanceCard { text = "Kira geliri.", amount = 90 },
+    };
+
+    private static readonly ChanceCard[] CommunityCards =
+    {
+        new ChanceCard { text = "Doktor ucreti.", amount = -50 },
+        new ChanceCard { text = "Miras!", amount = 200 },
+        new ChanceCard { text = "Yillik sigorta primi.", amount = -60 },
+        new ChanceCard { text = "Hazine avi kazandiniz!", amount = 100 },
+        new ChanceCard { text = "Dugun hediyesi.", amount = 80 },
+        new ChanceCard { text = "Kutu acma sansi!", amount = 120 },
+        new ChanceCard { text = "Yol vergisi.", amount = -70 },
+        new ChanceCard { text = "Emeklilik fonu.", amount = 150 },
+        new ChanceCard { text = "Hastane ziyareti.", amount = -100 },
+        new ChanceCard { text = "Piyango!", amount = 50 },
+    };
+
+    [Server]
+    private ChanceCard GetRandomCard(bool isChance)
+    {
+        var deck = isChance ? ChanceCards : CommunityCards;
+        return deck[Random.Range(0, deck.Length)];
+    }
+
+    [ClientRpc]
+    private void RpcShowCardNotification(string cardText, string playerName, int amount)
+    {
+        string msg = amount != 0
+            ? $"{playerName}: {cardText} ({(amount > 0 ? "+" : "")}{amount} TL)"
+            : $"{playerName}: {cardText}";
+        LastNotification = msg;
+        LastNotificationTime = Time.time;
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlayNotification();
     }
 
     [ClientRpc]
@@ -350,6 +500,7 @@ public class GameTurnManager : NetworkBehaviour
     {
         LastNotification = $"{payerName} {amount} TL kira ödedi ({ownerName})";
         LastNotificationTime = Time.time;
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayRentPay();
     }
 
     [Server]
@@ -364,6 +515,7 @@ public class GameTurnManager : NetworkBehaviour
         if (player == null) return;
         if (bankruptPlayerIndices.Contains(player.playerIndex)) return;
         bankruptPlayerIndices.Add(player.playerIndex);
+        RpcPlayBankrupt();
         RpcShowNotification($"{player.steamName} iflas etti!");
         Debug.Log($"[Turn] P{player.playerIndex} iflas etti.");
 
@@ -382,6 +534,24 @@ public class GameTurnManager : NetworkBehaviour
     }
 
     [Server]
+    private void CheckGameTimeUp()
+    {
+        if (gameDurationSeconds <= 0f || winnerPlayerIndex >= 0) return;
+        float remaining = GetRemainingGameTime();
+        if (remaining > 0f) return;
+        var players = GetOrderedPlayers();
+        if (players.Count == 0) return;
+        var richest = players[0];
+        foreach (var p in players)
+        {
+            if (p != null && p.money > richest.money) richest = p;
+        }
+        winnerPlayerIndex = richest.playerIndex;
+        winnerName = richest.steamName ?? $"Oyuncu {richest.playerIndex}";
+        RpcShowNotification($"Süre doldu! Kazanan: {winnerName}");
+    }
+
+    [Server]
     private void AdvanceTurn()
     {
         var players = GetOrderedPlayers();
@@ -390,9 +560,13 @@ public class GameTurnManager : NetworkBehaviour
         int currentPos = players.FindIndex(p => p != null && p.playerIndex == currentTurnPlayerIndex);
         if (currentPos < 0) currentPos = 0;
 
+        CheckGameTimeUp();
+        if (winnerPlayerIndex >= 0) return;
+
         int nextPos = (currentPos + 1) % players.Count;
         currentTurnPlayerIndex = players[nextPos].playerIndex;
         turnNumber++;
+        _turnStartNetworkTime = NetworkTime.time;
 
         var nextPlayer = GetPlayerByIndex(currentTurnPlayerIndex);
         if (nextPlayer != null && nextPlayer.isBot && !isRolling)

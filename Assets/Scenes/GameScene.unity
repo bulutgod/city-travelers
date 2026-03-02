@@ -386,6 +386,9 @@ MonoBehaviour:
   minDice: 2
   maxDice: 12
   moveStepDelay: 0.16
+  turnTimeLimit: 60
+  gameDurationSeconds: 0
+  gameStartNetworkTime: 0
   boardSpaceCount: 38
   currentTurnPlayerIndex: -1
   turnNumber: 1
@@ -429,6 +432,7 @@ MonoBehaviour:
   pendingSpaceIndex: -1
   pendingPlayerIndex: -1
   pendingIsBuild: 0
+  pendingIsRentOrBuy: 0
 --- !u!114 &738075095
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -443,7 +447,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::HouseVisualizer
   boardManager: {fileID: 525107022}
   cubeSize: 0.28
-  cubeHeight: 0.35
+  sphereSize: 0.22
   spacing: 0.32
   edgeOffset: 0.55
 --- !u!1 &906152661
@@ -475,6 +479,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c7e543b81ffa784ea0d4f3ea808ab3f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameHudUI
+  _layoutConfig: {fileID: 11400000, guid: 8225c2a0ef9740242b9af8ee9a6e26fa, type: 2}
 --- !u!4 &906152663
 Transform:
   m_ObjectHideFlags: 0

@@ -35,6 +35,8 @@ public class PlayerObject : NetworkBehaviour
     /// </summary>
     [SyncVar] public bool hasPassedStart = false;
 
+    [SyncVar] public bool isReady = false;
+
     private void OnCharacterIndexChanged(int oldVal, int newVal)
     {
         LobbyUINew.Instance?.RefreshLobby();
@@ -59,6 +61,12 @@ public class PlayerObject : NetworkBehaviour
     public void CmdSetDiceIndex(int index)
     {
         selectedDiceIndex = Mathf.Clamp(index, 0, 99);
+    }
+
+    [Command]
+    public void CmdSetReady(bool ready)
+    {
+        isReady = ready;
     }
 
     [Command]
@@ -106,6 +114,27 @@ public class PlayerObject : NetworkBehaviour
     /// <summary>
     /// Oyuncu oyun icinde "Terket"e bastiginda cagirilir; sunucu state'i 3 dk tutmaz.
     /// </summary>
+    [Command]
+    public void CmdSetGameDuration(float seconds)
+    {
+        if (GameTurnManager.Instance != null)
+            GameTurnManager.Instance.ServerSetGameDuration(seconds);
+    }
+
+    [Command]
+    public void CmdRequestAddBot()
+    {
+        if (GameNetworkManager.Instance != null)
+            GameNetworkManager.Instance.ServerAddBot();
+    }
+
+    [Command]
+    public void CmdSendQuickChat(int messageIndex)
+    {
+        if (GameTurnManager.Instance != null)
+            GameTurnManager.Instance.ServerBroadcastQuickChat(steamName, messageIndex);
+    }
+
     [Command]
     public void CmdVoluntaryLeave()
     {

@@ -217,6 +217,7 @@ MonoBehaviour:
   cardOutline: {fileID: 3268650991659107403}
   steamAvatarImage: {fileID: 5371049273690277620}
   steamNameText: {fileID: 3312199375939008080}
+  avatarSize: 55
   characterBackground: {fileID: 6801843297189047490}
   characterModelImage: {fileID: 7736828942128495287}
   prevCharButton: {fileID: 3253689667216809991}
@@ -455,10 +456,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 6588149493252887320}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -40.999992, y: 20.999992}
-  m_SizeDelta: {x: 18, y: 18}
+  m_AnchorMin: {x: 0, y: 0.5}
+  m_AnchorMax: {x: 0, y: 0.5}
+  m_AnchoredPosition: {x: 27.5, y: 0}
+  m_SizeDelta: {x: 55, y: 55}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8794400514031608081
 CanvasRenderer:

@@ -13,9 +13,11 @@ public class PlayerCardUI : MonoBehaviour
     [SerializeField] private Image cardBackground;           // Kart zemini
     [SerializeField] private Image cardOutline;              // Local oyuncu i�in pembe outline
 
-    [Header("�st Bar (Avatar + ?sim)")]
-    [SerializeField] private RawImage steamAvatarImage;      // Steam profil foto?raf?
-    [SerializeField] private TextMeshProUGUI steamNameText;  // Steam kullan?c? ad?
+    [Header("Üst Bar (Avatar + İsim)")]
+    [SerializeField] private RawImage steamAvatarImage;      // Steam profil fotoğrafı
+    [SerializeField] private TextMeshProUGUI steamNameText;  // Steam kullanıcı adı
+    [Tooltip("Avatar daire alanının çapı (px). Tasarımdaki rounded square içindeki daireye uyum için.")]
+    [SerializeField] private float avatarSize = 55f;
 
     [Header("Karakter Alan?")]
     [SerializeField] private Image characterBackground;      // Renkli arka plan
@@ -26,9 +28,10 @@ public class PlayerCardUI : MonoBehaviour
     [Header("Zar (Sa? Alt)")]
     [SerializeField] private Image diceImage;                // Zar sprite görseli
 
-    [Header("Durum Katmanlar?")]
+    [Header("Durum Katmanları")]
     [SerializeField] private GameObject waitingOverlay;      // "Bekleniyor" paneli
-    [SerializeField] private GameObject activeContent;       // Normal kart i�eri?i
+    [SerializeField] private GameObject activeContent;       // Normal kart içeriği
+    [SerializeField] private TextMeshProUGUI readyLabel;    // "Hazır" yazısı (opsiyonel)
 
     [Header("Karakter Arka Plan Renkleri")]
     [SerializeField]
@@ -45,6 +48,7 @@ public class PlayerCardUI : MonoBehaviour
     private readonly Color _normalOutlineColor = new Color(0f, 0f, 0f, 0f);
 
     private PlayerObject _player;
+    private TextMeshProUGUI _runtimeReadyLabel;
 
     /// <summary>Bu kart yerel oyuncuya m? ait?</summary>
     public bool IsLocalPlayer => _player != null && _player.isLocalPlayer;
@@ -66,6 +70,11 @@ public class PlayerCardUI : MonoBehaviour
         // Avatar: host icin gecikme olabiliyor, local player icin Steam'den yukle
         if (steamAvatarImage)
         {
+            AvatarCircleMask.ApplyTo(steamAvatarImage);
+            // Tasarımdaki daire alana tam oturması için boyut ayarla
+            var rt = steamAvatarImage.GetComponent<RectTransform>();
+            if (rt != null && avatarSize > 0)
+                rt.sizeDelta = new Vector2(avatarSize, avatarSize);
             if (player.avatarTexture != null)
             {
                 steamAvatarImage.texture = player.avatarTexture;
@@ -98,10 +107,29 @@ public class PlayerCardUI : MonoBehaviour
         // Karakter rengi
         RefreshCharacterColor(player.selectedCharacterIndex);
 
-        // Karakter ok butonlar?: sadece local oyuncu kullanabilir
+        // Karakter ok butonları: sadece local oyuncu kullanabilir
         bool showCharButtons = IsLocalPlayer;
         if (prevCharButton) prevCharButton.gameObject.SetActive(showCharButtons);
         if (nextCharButton) nextCharButton.gameObject.SetActive(showCharButtons);
+
+        var rl = readyLabel ?? _runtimeReadyLabel;
+        if (rl == null)
+        {
+            var go = new GameObject("ReadyLabel");
+            go.transform.SetParent(transform, false);
+            var rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(1, 0);
+            rt.anchorMax = new Vector2(1, 0);
+            rt.pivot = new Vector2(1, 0);
+            rt.anchoredPosition = new Vector2(-8, 8);
+            rt.sizeDelta = new Vector2(60, 24);
+            _runtimeReadyLabel = go.AddComponent<TextMeshProUGUI>();
+            _runtimeReadyLabel.fontSize = 14;
+            rl = _runtimeReadyLabel;
+        }
+        rl.gameObject.SetActive(true);
+        rl.text = player.isReady ? "HAZIR" : "";
+        rl.color = player.isReady ? new Color(0.2f, 0.9f, 0.3f, 1f) : new Color(0.5f, 0.5f, 0.5f, 0.8f);
     }
 
     /// <summary>
@@ -116,9 +144,15 @@ public class PlayerCardUI : MonoBehaviour
 
         if (cardOutline) cardOutline.color = _normalOutlineColor;
 
-        if (steamNameText) steamNameText.text = "BO?";
+        if (steamNameText) steamNameText.text = "BOŞ";
+        if (readyLabel) readyLabel.gameObject.SetActive(false);
+        if (_runtimeReadyLabel) _runtimeReadyLabel.gameObject.SetActive(false);
         if (steamAvatarImage)
         {
+            AvatarCircleMask.ApplyTo(steamAvatarImage);
+            var rt = steamAvatarImage.GetComponent<RectTransform>();
+            if (rt != null && avatarSize > 0)
+                rt.sizeDelta = new Vector2(avatarSize, avatarSize);
             steamAvatarImage.texture = null;
             steamAvatarImage.color = new Color(1f, 1f, 1f, 0.05f);
         }

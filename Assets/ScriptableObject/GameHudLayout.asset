@@ -1,0 +1,114 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e591de2de543d624290cc18d7f5966b9, type: 3}
+  m_Name: GameHudLayout
+  m_EditorClassIdentifier: Assembly-CSharp::GameHudLayoutConfig
+  leftPanelAnchorMin: {x: 0, y: 1}
+  leftPanelAnchorMax: {x: 0, y: 1}
+  leftPanelPivot: {x: 0, y: 1}
+  leftPanelFirstTextPos: {x: 12, y: -12}
+  leftPanelLineSpacing: 32
+  leftPanelTextSize: {x: 500, y: 28}
+  leftPanelFontSize: 30
+  playerSummaryPos: {x: 12, y: -172}
+  playerSummaryFontSize: 16
+  turnTimerPos: {x: 12, y: -204}
+  turnTimerFontSize: 16
+  rollButtonAnchorMin: {x: 1, y: 0}
+  rollButtonAnchorMax: {x: 1, y: 0}
+  rollButtonPivot: {x: 1, y: 0}
+  rollButtonPosition: {x: -16, y: 16}
+  rollButtonSize: {x: 180, y: 52}
+  leaveButtonPosition: {x: 16, y: 54}
+  leaveButtonSize: {x: 140, y: 40}
+  leaveButtonFontSize: 16
+  settingsButtonAnchorMin: {x: 1, y: 1}
+  settingsButtonAnchorMax: {x: 1, y: 1}
+  settingsButtonPivot: {x: 1, y: 1}
+  settingsButtonPosition: {x: -16, y: -16}
+  settingsButtonSize: {x: 80, y: 36}
+  settingsButtonFontSize: 24
+  cornerHudSize: {x: 140, y: 56}
+  cornerHudOffset: {x: 16, y: 16}
+  cornerHudAvatarSize: {x: 40, y: 40}
+  cornerHudAvatarOffset: 8
+  cornerHudPaddingLeft: 54
+  cornerHudPaddingRight: 8
+  cornerHudPaddingTop: 8
+  cornerHudPaddingBottom: 8
+  cornerHudNameFontSize: 14
+  cornerHudMoneyFontSize: 16
+  escapeMenuPanelSize: {x: 320, y: 280}
+  escapeMenuTitlePos: {x: 0, y: -24}
+  escapeMenuTitleSize: {x: 200, y: 36}
+  escapeMenuTitleFontSize: 28
+  escapeMenuButtonY: -70
+  escapeMenuButtonSpacing: 50
+  escapeMenuButtonSize: {x: 240, y: 44}
+  gameDurationPanelPos: {x: 0, y: -150}
+  gameDurationPanelSize: {x: 320, y: 100}
+  gameDurationTextPos: {x: 0, y: -12}
+  gameDurationTextSize: {x: 280, y: 32}
+  gameDurationTextFontSize: 24
+  gameDurationButtonRowPos: {x: 0, y: 16}
+  gameDurationButtonRowSize: {x: 280, y: 36}
+  gameDurationButtonSize: {x: 80, y: 32}
+  gameDurationButtonSpacing: 95
+  gameDurationButtonFontSize: 14
+  quickChatBarPos: {x: 0, y: 56}
+  quickChatBarSize: {x: 520, y: 40}
+  quickChatButtonCount: 6
+  quickChatButtonWidth: 72
+  quickChatButtonHeight: 36
+  quickChatButtonSpacing: 8
+  quickChatButtonFontSize: 14
+  buyPanelSize: {x: 560, y: 220}
+  buyPanelTextPos: {x: 0, y: 30}
+  buyPanelTextSize: {x: 300, y: 40}
+  buyButtonPos: {x: -70, y: 20}
+  buyButtonSize: {x: 100, y: 36}
+  declineButtonPos: {x: 70, y: 20}
+  declineButtonSize: {x: 100, y: 36}
+  buildTitlePos: {x: 0, y: 70}
+  buildTitleSize: {x: 340, y: 24}
+  buildHouseRowPos: {x: 0, y: 20}
+  buildHouseRowSize: {x: 530, y: 110}
+  buildHouseRowSpacing: 12
+  buildHouseSlotSize: {x: 95, y: 100}
+  buildBottomRowPos: {x: 0, y: 8}
+  buildBottomRowHeight: 44
+  buildBottomSpacing: 16
+  rentOrBuyInfoPos: {x: 0, y: 40}
+  rentOrBuyInfoSize: {x: 500, y: 60}
+  rentOrBuyInfoFontSize: 18
+  payRentButtonPos: {x: -90, y: 20}
+  payRentButtonSize: {x: 160, y: 40}
+  buyFromOwnerButtonPos: {x: 90, y: 20}
+  buyFromOwnerButtonSize: {x: 160, y: 40}
+  notificationAnchorMin: {x: 0.5, y: 0.85}
+  notificationAnchorMax: {x: 0.5, y: 0.85}
+  notificationSize: {x: 500, y: 50}
+  notificationPaddingLeft: 10
+  notificationPaddingRight: 10
+  notificationPaddingTop: 5
+  notificationPaddingBottom: 5
+  notificationFontSize: 20
+  gameOverTitleAnchorY: 0.6
+  gameOverTitleSize: {x: 600, y: 50}
+  gameOverTitleFontSize: 28
+  gameOverWinnerAnchorY: 0.48
+  gameOverWinnerSize: {x: 600, y: 80}
+  gameOverWinnerFontSize: 42
+  gameOverMenuButtonAnchorY: 0.25
+  gameOverMenuButtonSize: {x: 200, y: 48}
+  gameOverMenuButtonFontSize: 22
+  referenceResolution: {x: 1920, y: 1080}
