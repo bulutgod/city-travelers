@@ -25,6 +25,8 @@ public class GameTurnManager : NetworkBehaviour
     [SerializeField] private int minDice = 1;
     [SerializeField] private int maxDice = 6;
     [SerializeField] private float moveStepDelay = 0.16f;
+    [Tooltip("Zar yere dustukten sonra piyonlarin hareket etmeden once beklenen sure (saniye). DiceRollAnimator fallDuration + showResultDuration ile uyumlu (ornegin 2.5).")]
+    [SerializeField] private float delayBeforeMoveAfterRoll = 2.5f;
 
     [Header("Tur Zamani")]
     [Tooltip("Her sira icin sure (saniye). 0 = sinirsiz.")]
@@ -41,6 +43,8 @@ public class GameTurnManager : NetworkBehaviour
     [SyncVar] public int currentTurnPlayerIndex = -1;
     [SyncVar] public int turnNumber = 1;
     [SyncVar] public int lastRollValue = 0;
+    [SyncVar] public int lastRollDice1 = 0;
+    [SyncVar] public int lastRollDice2 = 0;
     [SyncVar] public int lastRollPlayerIndex = -1;
     [SyncVar] public bool isRolling = false;
     [SyncVar] public int rollingPlayerIndex = -1;
@@ -131,6 +135,8 @@ public class GameTurnManager : NetworkBehaviour
         currentTurnPlayerIndex = snap.currentTurnPlayerIndex;
         turnNumber = snap.turnNumber;
         lastRollValue = snap.lastRollValue;
+        lastRollDice1 = snap.lastRollDice1;
+        lastRollDice2 = snap.lastRollDice2;
         lastRollPlayerIndex = snap.lastRollPlayerIndex;
         isRolling = false;
         rollingPlayerIndex = -1;
@@ -156,6 +162,8 @@ public class GameTurnManager : NetworkBehaviour
         if (boardSpaceCount <= 0) boardSpaceCount = 38;
         turnNumber = 1;
         lastRollValue = 0;
+        lastRollDice1 = 0;
+        lastRollDice2 = 0;
         lastRollPlayerIndex = -1;
         isRolling = false;
         rollingPlayerIndex = -1;
@@ -163,9 +171,12 @@ public class GameTurnManager : NetworkBehaviour
         foreach (var p in players)
             if (p != null) p.currentSpaceIndex = 0;
 
-        currentTurnPlayerIndex = players[0].playerIndex;
+        int firstIndex = Random.Range(0, players.Count);
+        currentTurnPlayerIndex = players[firstIndex].playerIndex;
         _turnStartNetworkTime = NetworkTime.time;
-        Debug.Log($"[Turn] Basladi. Ilk oyuncu index: {currentTurnPlayerIndex}");
+        Debug.Log($"[Turn] Basladi. Ilk oyuncu index: {currentTurnPlayerIndex} (rastgele secildi)");
+        if (players[firstIndex] != null && players[firstIndex].isBot)
+            StartCoroutine(BotTurnAfterDelay(players[firstIndex], 1.5f));
     }
 
     [Server]
@@ -196,17 +207,27 @@ public class GameTurnManager : NetworkBehaviour
             return false;
         }
 
-        int roll = Random.Range(minDice, maxDice + 1);
-        StartCoroutine(ServerRollAndMove(requester, roll));
+        int dice1 = Random.Range(1, 7);
+        int dice2 = Random.Range(1, 7);
+        int roll = dice1 + dice2;
+        StartCoroutine(ServerRollAndMove(requester, roll, dice1, dice2));
         return true;
     }
 
     [Server]
-    private IEnumerator ServerRollAndMove(PlayerObject requester, int roll)
+    private IEnumerator ServerRollAndMove(PlayerObject requester, int roll, int dice1, int dice2)
     {
         isRolling = true;
         rollingPlayerIndex = requester.playerIndex;
+        lastRollValue = roll;
+        lastRollDice1 = dice1;
+        lastRollDice2 = dice2;
+        lastRollPlayerIndex = requester.playerIndex;
+
         RpcPlayDiceRoll();
+        RpcPlayDiceLand(dice1, dice2);
+
+        yield return new WaitForSeconds(Mathf.Max(0f, delayBeforeMoveAfterRoll));
 
         int steps = Mathf.Max(1, roll);
         float stepDelay = Mathf.Max(0.03f, moveStepDelay);
@@ -233,15 +254,11 @@ public class GameTurnManager : NetworkBehaviour
             yield return new WaitForSeconds(stepDelay);
         }
 
-        lastRollValue = roll;
-        lastRollPlayerIndex = requester.playerIndex;
-
         int landedIndex = requester.currentSpaceIndex;
-        Debug.Log($"[Turn] Oyuncu {requester.playerIndex} zar: {roll}, yeni index: {landedIndex}");
+        Debug.Log($"[Turn] Oyuncu {requester.playerIndex} zar: {dice1}+{dice2}={roll}, yeni index: {landedIndex}");
 
         isRolling = false;
         rollingPlayerIndex = -1;
-        RpcPlayDiceLand();
 
         var info = BoardManager.Instance != null ? BoardManager.Instance.GetSpaceInfo(landedIndex) : null;
         var spaceType = info != null ? info.spaceType : SpaceInfo.SpaceType.Normal;
@@ -420,13 +437,20 @@ public class GameTurnManager : NetworkBehaviour
     private void RpcPlayDiceRoll()
     {
         if (AudioManager.Instance != null) AudioManager.Instance.PlayDiceRoll();
+        OnDiceRollStarted?.Invoke();
     }
 
     [ClientRpc]
-    private void RpcPlayDiceLand()
+    private void RpcPlayDiceLand(int dice1, int dice2)
     {
         if (AudioManager.Instance != null) AudioManager.Instance.PlayDiceLand();
+        OnDiceRollLanded?.Invoke(dice1, dice2);
     }
+
+    /// <summary>Client tarafinda zar atma animasyonu icin. Zar donmeye basladiginda tetiklenir.</summary>
+    public static event System.Action OnDiceRollStarted;
+    /// <summary>Client tarafinda zar atma animasyonu icin. Iki zarin degeri (1-6, 1-6) belli oldugunda tetiklenir.</summary>
+    public static event System.Action<int, int> OnDiceRollLanded;
 
     [ClientRpc]
     private void RpcPlayCoinGain()
@@ -624,6 +648,15 @@ public class GameTurnManager : NetworkBehaviour
     private IEnumerator BotTurnAfterDelay(PlayerObject bot, float delay)
     {
         yield return new WaitForSeconds(delay);
+        if (bot == null || !bot.isBot) yield break;
+
+        // Once onceki zar + hareket + panel islemleri bitene kadar bekle (max ~8 sn)
+        float timeout = Time.time + 8f;
+        while (isRolling && Time.time < timeout)
+            yield return null;
+        if (Time.time >= timeout) yield break;
+
+        yield return new WaitForSeconds(0.2f);
         if (bot == null || !bot.isBot) yield break;
         if (currentTurnPlayerIndex != bot.playerIndex || isRolling) yield break;
         ServerTryRoll(bot);

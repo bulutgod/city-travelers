@@ -47,6 +47,9 @@ public class GameNetworkManager : NetworkManager
 
     private readonly List<PendingBotSpawn> _pendingBotsForGameScene = new List<PendingBotSpawn>();
 
+    [Tooltip("Lobide host'un sectigi oyun suresi (sn). Oyun sahnesi acilinca GameTurnManager'a uygulanir.")]
+    private float _pendingGameDurationSeconds;
+
     #region Mirror Lifecycle
 
     public override void Awake()
@@ -526,6 +529,14 @@ public class GameNetworkManager : NetworkManager
     {
         base.OnServerSceneChanged(sceneName);
         string gameScene = !string.IsNullOrEmpty(gameSceneName) ? gameSceneName : "GameScene";
+
+        if (!string.IsNullOrEmpty(sceneName) && sceneName == gameScene && _pendingGameDurationSeconds > 0 && GameTurnManager.Instance != null)
+        {
+            GameTurnManager.Instance.ServerSetGameDuration(_pendingGameDurationSeconds);
+            _pendingGameDurationSeconds = 0f;
+            Debug.Log("[Network] Lobide secilen oyun suresi oyun sahnesine uygulandi.");
+        }
+
         if (string.IsNullOrEmpty(sceneName) || sceneName != gameScene || _pendingBotsForGameScene.Count == 0)
             return;
 
@@ -558,6 +569,12 @@ public class GameNetworkManager : NetworkManager
             foreach (var b in _botPlayers)
                 if (b != null) GameTurnManager.Instance.ServerNotifyBotSpawned(b);
         }
+    }
+
+    [Server]
+    public void ServerSetPendingGameDuration(float seconds)
+    {
+        _pendingGameDurationSeconds = seconds;
     }
 
     #endregion

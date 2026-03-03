@@ -18,6 +18,10 @@ public class LoadingScreenManager : MonoBehaviour
     [Tooltip("Opsiyonel. Atarsan arka plan olarak bu sprite kullanilir.")]
     public Sprite backgroundSprite;
 
+    [Header("Opsiyonel UI (yapildikca Inspector'dan ata)")]
+    [Tooltip("Tasarim hazir olunca bu Canvas'i ata. Altinda 'ProgressBar' (Image), 'Status' (Text), 'Tip' (Text), 'Title' (Text) ve 'BarBg' (Image) isimli objeler aranir. Bos birakilirsa UI koddan uretilir.")]
+    [SerializeField] private Canvas overrideLoadingCanvas;
+
     private static readonly string[] Tips =
     {
         "Oteli olan mülkler satın alınamaz!",
@@ -45,6 +49,14 @@ public class LoadingScreenManager : MonoBehaviour
 
     private void BuildUI()
     {
+        if (overrideLoadingCanvas != null)
+        {
+            ResolveLoadingOverrides(overrideLoadingCanvas.transform);
+            _fadeGroup = overrideLoadingCanvas.GetComponent<CanvasGroup>();
+            if (_fadeGroup == null) _fadeGroup = overrideLoadingCanvas.gameObject.AddComponent<CanvasGroup>();
+            _fadeGroup.alpha = 0f;
+            return;
+        }
         var canvasGo = new GameObject("LoadingCanvas");
         var canvas = canvasGo.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -119,6 +131,13 @@ public class LoadingScreenManager : MonoBehaviour
         var statusGo = CreateTextObj(canvasGo.transform, "Status", "Yükleniyor...",
             new Vector2(0.5f, 0.26f), new Vector2(400, 30), 18, FontStyle.Normal, new Color(0.8f, 0.8f, 0.85f));
         _statusText = statusGo.GetComponent<Text>();
+    }
+
+    private void ResolveLoadingOverrides(Transform root)
+    {
+        _progressBar = root.Find("BarBg/ProgressBar")?.GetComponent<Image>() ?? root.Find("ProgressBar")?.GetComponent<Image>();
+        _statusText = root.Find("Status")?.GetComponent<Text>();
+        _tipText = root.Find("Tip")?.GetComponent<Text>();
     }
 
     private GameObject CreateTextObj(Transform parent, string name, string content,

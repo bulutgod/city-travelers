@@ -217,7 +217,7 @@ MonoBehaviour:
   cardOutline: {fileID: 3268650991659107403}
   steamAvatarImage: {fileID: 5371049273690277620}
   steamNameText: {fileID: 3312199375939008080}
-  avatarSize: 55
+  avatarSize: 38
   characterBackground: {fileID: 6801843297189047490}
   characterModelImage: {fileID: 7736828942128495287}
   prevCharButton: {fileID: 3253689667216809991}
@@ -225,6 +225,7 @@ MonoBehaviour:
   diceImage: {fileID: 5410677279689180505}
   waitingOverlay: {fileID: 6020991366435166383}
   activeContent: {fileID: 2847967495634215726}
+  readyLabel: {fileID: 0}
   characterBgColors:
   - {r: 0.96, g: 0.9, b: 0.827451, a: 1}
   - {r: 0.827451, g: 0.9, b: 0.96, a: 1}
@@ -458,8 +459,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 27.5, y: 0}
-  m_SizeDelta: {x: 55, y: 55}
+  m_AnchoredPosition: {x: 9.4895, y: 21.196}
+  m_SizeDelta: {x: 19, y: 19}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8794400514031608081
 CanvasRenderer:

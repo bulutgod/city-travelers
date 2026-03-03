@@ -61,6 +61,10 @@ public class LobbyUINew : MonoBehaviour
     [SerializeField] private int maxPlayers = 4;
     [SerializeField] private float refreshRate = 0.5f;
 
+    [Header("Opsiyonel UI (yapildikca Inspector'dan ata)")]
+    [Tooltip("Lobi oyun suresi satiri (Oyun suresi: + 20 dk / 1 saat / 2 saat). Atanirsa koddan uretilmez; icinde 'DurationLabel' (TMP) ve 'Dur20', 'Dur60', 'Dur120' isimli butonlar olmali.")]
+    [SerializeField] private GameObject overrideDurationRow;
+
     // -------------------------------------------------------
     // Private State
     // -------------------------------------------------------
@@ -79,6 +83,9 @@ public class LobbyUINew : MonoBehaviour
     };
 
     private Coroutine _refreshCoroutine;
+    private GameObject _durationRow;
+    private Button _dur20Btn, _dur60Btn, _dur120Btn;
+    private TextMeshProUGUI _durationLabel;
 
     // -------------------------------------------------------
     // Unity Lifecycle
@@ -204,10 +211,122 @@ public class LobbyUINew : MonoBehaviour
         return config != null ? config.CornerRadius : menuAvatarCornerRadius;
     }
 
+    private void EnsureDurationRow()
+    {
+        if (lobbyPanel == null) return;
+        if (_durationRow != null)
+        {
+            _durationRow.SetActive(NetworkServer.active);
+            return;
+        }
+        if (overrideDurationRow != null)
+        {
+            _durationRow = overrideDurationRow;
+            _durationRow.transform.SetParent(lobbyPanel.transform, false);
+            _durationLabel = _durationRow.transform.Find("DurationLabel")?.GetComponent<TextMeshProUGUI>();
+            var dur20 = _durationRow.transform.Find("Dur20")?.GetComponent<Button>();
+            var dur60 = _durationRow.transform.Find("Dur60")?.GetComponent<Button>();
+            var dur120 = _durationRow.transform.Find("Dur120")?.GetComponent<Button>();
+            if (dur20 == null || dur60 == null || dur120 == null)
+            {
+                var btns = _durationRow.GetComponentsInChildren<Button>();
+                if (btns.Length >= 3) { dur20 = btns[0]; dur60 = btns[1]; dur120 = btns[2]; }
+            }
+            if (dur20 != null) dur20.onClick.AddListener(() => { if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick(); SetDurationAndUpdateLabel(1200f, "20 dk"); });
+            if (dur60 != null) dur60.onClick.AddListener(() => { if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick(); SetDurationAndUpdateLabel(3600f, "1 saat"); });
+            if (dur120 != null) dur120.onClick.AddListener(() => { if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick(); SetDurationAndUpdateLabel(7200f, "2 saat"); });
+            _dur20Btn = dur20; _dur60Btn = dur60; _dur120Btn = dur120;
+            _durationRow.SetActive(NetworkServer.active);
+            return;
+        }
+
+        _durationRow = new GameObject("DurationRow");
+        _durationRow.transform.SetParent(lobbyPanel.transform, false);
+        var rt = _durationRow.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0f);
+        rt.anchorMax = new Vector2(0.5f, 0f);
+        rt.pivot = new Vector2(0.5f, 0f);
+        rt.anchoredPosition = new Vector2(0f, 72f);
+        rt.sizeDelta = new Vector2(420f, 40f);
+
+        var hlg = _durationRow.AddComponent<HorizontalLayoutGroup>();
+        hlg.spacing = 10f;
+        hlg.childAlignment = TextAnchor.MiddleCenter;
+        hlg.childControlWidth = false;
+        hlg.childControlHeight = true;
+        hlg.childForceExpandWidth = false;
+        hlg.childForceExpandHeight = true;
+        hlg.padding = new RectOffset(8, 8, 4, 4);
+
+        var labelGo = new GameObject("DurationLabel");
+        labelGo.transform.SetParent(_durationRow.transform, false);
+        var labelRt = labelGo.AddComponent<RectTransform>();
+        labelRt.sizeDelta = new Vector2(120f, 32f);
+        _durationLabel = labelGo.AddComponent<TextMeshProUGUI>();
+        _durationLabel.text = "Oyun süresi:";
+        _durationLabel.fontSize = 18;
+        _durationLabel.color = Color.white;
+
+        _dur20Btn = CreateLobbyDurationButton("20 dk", 1200f);
+        _dur60Btn = CreateLobbyDurationButton("1 saat", 3600f);
+        _dur120Btn = CreateLobbyDurationButton("2 saat", 7200f);
+
+        _dur20Btn.transform.SetParent(_durationRow.transform, false);
+        _dur60Btn.transform.SetParent(_durationRow.transform, false);
+        _dur120Btn.transform.SetParent(_durationRow.transform, false);
+
+        _durationRow.SetActive(NetworkServer.active);
+    }
+
+    private Button CreateLobbyDurationButton(string label, float seconds)
+    {
+        var go = new GameObject("Dur_" + label);
+        var rt = go.AddComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(88f, 36f);
+        var img = go.AddComponent<Image>();
+        img.color = new Color(0.25f, 0.4f, 0.6f, 0.95f);
+        var btn = go.AddComponent<Button>();
+        btn.targetGraphic = img;
+        var txtGo = new GameObject("Text");
+        txtGo.transform.SetParent(go.transform, false);
+        var txtRt = txtGo.AddComponent<RectTransform>();
+        txtRt.anchorMin = Vector2.zero;
+        txtRt.anchorMax = Vector2.one;
+        txtRt.offsetMin = Vector2.zero;
+        txtRt.offsetMax = Vector2.zero;
+        var txt = txtGo.AddComponent<TextMeshProUGUI>();
+        txt.text = label;
+        txt.fontSize = 14;
+        txt.alignment = TextAlignmentOptions.Center;
+        txt.color = Color.white;
+        btn.onClick.AddListener(() =>
+        {
+            if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
+            SetDurationAndUpdateLabel(seconds, label);
+        });
+        return btn;
+    }
+
+    private void SetDurationAndUpdateLabel(float seconds, string label)
+    {
+        var players = GetCurrentPlayers();
+        foreach (var p in players)
+        {
+            if (p != null && p.isLocalPlayer)
+            {
+                p.CmdSetPendingGameDuration(seconds);
+                if (_durationLabel != null) _durationLabel.text = "Süre: " + label;
+                break;
+            }
+        }
+    }
+
     public void ShowLobby()
     {
         if (lobbyPanel) lobbyPanel.SetActive(true);
         if (mainMenuPanel) mainMenuPanel.SetActive(false);
+
+        EnsureDurationRow();
 
         if (playerCards != null)
         {

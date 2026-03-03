@@ -17,7 +17,7 @@ public class PlayerCardUI : MonoBehaviour
     [SerializeField] private RawImage steamAvatarImage;      // Steam profil fotoğrafı
     [SerializeField] private TextMeshProUGUI steamNameText;  // Steam kullanıcı adı
     [Tooltip("Avatar daire alanının çapı (px). Tasarımdaki rounded square içindeki daireye uyum için.")]
-    [SerializeField] private float avatarSize = 55f;
+    [SerializeField] private float avatarSize = 38f;
 
     [Header("Karakter Alan?")]
     [SerializeField] private Image characterBackground;      // Renkli arka plan

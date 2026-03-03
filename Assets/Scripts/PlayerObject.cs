@@ -121,6 +121,16 @@ public class PlayerObject : NetworkBehaviour
             GameTurnManager.Instance.ServerSetGameDuration(seconds);
     }
 
+    /// <summary>
+    /// Lobide host oyun suresini secer; oyun sahnesi acilinca uygulanir.
+    /// </summary>
+    [Command]
+    public void CmdSetPendingGameDuration(float seconds)
+    {
+        if (GameNetworkManager.Instance != null)
+            GameNetworkManager.Instance.ServerSetPendingGameDuration(seconds);
+    }
+
     [Command]
     public void CmdRequestAddBot()
     {

@@ -14,6 +14,8 @@ public class GameStateSnapshot
     public int currentTurnPlayerIndex;
     public int turnNumber;
     public int lastRollValue;
+    public int lastRollDice1;
+    public int lastRollDice2;
     public int lastRollPlayerIndex;
     public bool isRolling;
     public int rollingPlayerIndex;
@@ -61,6 +63,8 @@ public class GameStateSnapshot
             snap.currentTurnPlayerIndex = GameTurnManager.Instance.currentTurnPlayerIndex;
             snap.turnNumber = GameTurnManager.Instance.turnNumber;
             snap.lastRollValue = GameTurnManager.Instance.lastRollValue;
+            snap.lastRollDice1 = GameTurnManager.Instance.lastRollDice1;
+            snap.lastRollDice2 = GameTurnManager.Instance.lastRollDice2;
             snap.lastRollPlayerIndex = GameTurnManager.Instance.lastRollPlayerIndex;
             snap.isRolling = GameTurnManager.Instance.isRolling;
             snap.rollingPlayerIndex = GameTurnManager.Instance.rollingPlayerIndex;

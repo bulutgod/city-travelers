@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
+using TMPro;
 
 /// <summary>
 /// GameScene icin hizli test HUD'u:
@@ -16,6 +17,26 @@ public class GameHudUI : MonoBehaviour
     [Tooltip("HUD layout ayarlari. Bos birakilirsa varsayilan degerler kullanilir. Assets > Create > Brom City > Game HUD Layout Config ile olustur.")]
     [SerializeField] private GameHudLayoutConfig _layoutConfig;
 
+    [Header("Opsiyonel UI tasarimlari (yapildikca Inspector'dan ata)")]
+    [Tooltip("Tasarim hazir olunca bu Canvas'i ata; cocuk objeleri asagidaki alanlara surukle veya isimlerle eslesecek sekilde birak (TurnText, RollText, RollButton, MoneyText, BuyPanel, NotificationToast, GameOverPanel, EscapeMenuPanel, GameDurationPanel, SettingsButton, Corner Huds). Bos birakilirsa UI koddan uretilir.")]
+    [SerializeField] private Canvas overrideCanvas;
+    [Tooltip("Atanirsa bu Roll butonu kullanilir. Icindeki Text 'ZAR AT' / 'ZAR BEKLE' guncellenir.")]
+    [SerializeField] private Button overrideRollButton;
+    [Tooltip("Atanirsa bu panel satin al / ev dik ekrani olarak kullanilir.")]
+    [SerializeField] private GameObject overrideBuyPanel;
+    [Tooltip("Atanirsa bildirim toast olarak kullanilir. Icinde 'Text' isminde Text bileseni olmali.")]
+    [SerializeField] private GameObject overrideNotificationToast;
+    [Tooltip("Atanirsa oyun bitti paneli olarak kullanilir. Icinde kazanan adi ve Menuye Don butonu olmali.")]
+    [SerializeField] private GameObject overrideGameOverPanel;
+    [Tooltip("Atanirsa ESC menusu paneli (Devam, Ayarlar, Oyunu Birak) olarak kullanilir.")]
+    [SerializeField] private GameObject overrideEscapeMenuPanel;
+    [Tooltip("Atanirsa oyun suresi sayaci paneli olarak kullanilir. Icinde Timer metni olmali.")]
+    [SerializeField] private GameObject overrideGameDurationPanel;
+    [Tooltip("Atanirsa Ayarlar butonu olarak kullanilir.")]
+    [SerializeField] private Button overrideSettingsButton;
+    [Tooltip("Kose HUD'lari: 4 panel (sag alt, sol alt, sol ust, sag ust). Sirasiyla atanirsa kullanilir; iclerinde Avatar RawImage, Name Text, Money Text olmali.")]
+    [SerializeField] private GameObject[] overrideCornerHuds = new GameObject[4];
+
     private GameHudLayoutConfig C => _layoutConfig;
 
     private Canvas _canvas;
@@ -26,13 +47,11 @@ public class GameHudUI : MonoBehaviour
     private Text _moneyText;
     private Text _playerSummaryText;
     private Text _turnTimerText;
-    private struct PlayerCornerHud { public GameObject root; public RawImage avatar; public Text nameText; public Text moneyText; }
+    private struct PlayerCornerHud { public GameObject root; public RawImage avatar; public Text nameText; public Text moneyText; public TMP_Text nameTextTMP; public TMP_Text moneyTextTMP; }
     private PlayerCornerHud[] _playerCornerHuds;
     private GameObject _gameDurationPanel;
     private Text _gameDurationText;
-    private Button _dur20Btn;
-    private Button _dur60Btn;
-    private Button _dur120Btn;
+    private TMP_Text _gameDurationTextTMP;
     private Button _rollButton;
     private Image _rollButtonImage;
     private Text _rollButtonText;
@@ -43,6 +62,7 @@ public class GameHudUI : MonoBehaviour
     private Text _buyButtonText;
     private GameObject _buyPanelContent;
     private GameObject _buildPanelContent;
+    private GameObject _buildHouseRow;
     private GameObject _rentOrBuyPanelContent;
     private Text _rentOrBuyInfoText;
     private Button _payRentButton;
@@ -58,10 +78,8 @@ public class GameHudUI : MonoBehaviour
     private GameObject _gameOverPanel;
     private Text _gameOverText;
     private Button _gameOverMenuButton;
-    private Button _leaveGameButton;
     private GameObject _escapeMenuPanel;
     private GameObject _escapeMenuBackdrop;
-    private GameObject _quickChatBar;
     private bool _uiBuilt;
     private int _lastPendingSpace = -1;
     private const float NotificationDuration = 4f;
@@ -70,7 +88,6 @@ public class GameHudUI : MonoBehaviour
     private readonly Color _buttonActive = new Color(0.15f, 0.7f, 0.2f, 0.95f);
     private readonly Color _buttonIdle = new Color(0.35f, 0.35f, 0.35f, 0.8f);
     private float _rollAnimTick;
-    private int _rollAnimValue = 1;
 
     private void Start()
     {
@@ -100,28 +117,34 @@ public class GameHudUI : MonoBehaviour
     [ContextMenu("Force Rebuild UI")]
     public void ForceRebuildUI()
     {
-        if (_canvas != null)
+        if (_canvas != null && _canvas != overrideCanvas)
         {
             Destroy(_canvas.gameObject);
             _canvas = null;
         }
+        else if (_canvas == overrideCanvas)
+            _canvas = null;
         _uiBuilt = false;
         _turnText = _rollText = _youText = _statusText = _moneyText = _playerSummaryText = _turnTimerText = null;
         _playerCornerHuds = null;
-        _gameDurationPanel = null; _gameDurationText = null; _dur20Btn = _dur60Btn = _dur120Btn = null;
+        _gameDurationPanel = null; _gameDurationText = null; _gameDurationTextTMP = null;
         _rollButton = null; _rollButtonImage = null; _rollButtonText = null;
         _buyPanel = null; _buyPanelText = null; _buyButton = _declineButton = null; _buyButtonText = null;
-        _buyPanelContent = _buildPanelContent = _rentOrBuyPanelContent = null; _rentOrBuyInfoText = null;
+        _buyPanelContent = _buildPanelContent = _buildHouseRow = _rentOrBuyPanelContent = null; _rentOrBuyInfoText = null;
         _payRentButton = _buyFromOwnerButton = null; _houseToggles = null; _houseBoxes = null; _houseLabels = null;
         _buildPriceText = null; _buildBuyButton = null; _notificationToast = null; _notificationText = null;
-        _gameOverPanel = null; _gameOverText = null; _gameOverMenuButton = null; _leaveGameButton = null;
-        _escapeMenuPanel = null; _escapeMenuBackdrop = null; _quickChatBar = null;
+        _gameOverPanel = null; _gameOverText = null; _gameOverMenuButton = null;
+        _escapeMenuPanel = null; _escapeMenuBackdrop = null;
     }
 
     private void EnsureUiBuilt()
     {
-        if (_uiBuilt && _turnText != null && _rollText != null && _youText != null && _statusText != null && _moneyText != null && _rollButton != null)
-            return;
+        if (_uiBuilt)
+        {
+            if (overrideCanvas != null) return;
+            if (_turnText != null && _rollText != null && _youText != null && _statusText != null && _moneyText != null && _rollButton != null)
+                return;
+        }
         BuildUi();
     }
 
@@ -135,7 +158,27 @@ public class GameHudUI : MonoBehaviour
 
         EnsureEventSystem();
 
-        var canvasGo = new GameObject("GameHUD_Canvas");
+        GameObject canvasGo;
+        if (overrideCanvas != null)
+        {
+            _canvas = overrideCanvas;
+            canvasGo = _canvas.gameObject;
+            if (_canvas.GetComponent<CanvasScaler>() == null)
+                canvasGo.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            if (_canvas.GetComponent<GraphicRaycaster>() == null)
+                canvasGo.AddComponent<GraphicRaycaster>();
+            ResolveOverrides(canvasGo.transform);
+            if (_escapeMenuPanel == null)
+            {
+                CreateEscapeMenu(canvasGo.transform);
+                if (_escapeMenuBackdrop != null) _escapeMenuBackdrop.SetActive(false);
+            }
+            _uiBuilt = true;
+            return;
+        }
+
+        var canvasGoNew = new GameObject("GameHUD_Canvas");
+        canvasGo = canvasGoNew;
         _canvas = canvasGo.AddComponent<Canvas>();
         _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         var scaler = canvasGo.AddComponent<CanvasScaler>();
@@ -169,6 +212,7 @@ public class GameHudUI : MonoBehaviour
         _buyPanel = CreateBuyPanel(canvasGo.transform);
         _buyPanel.SetActive(false);
         _declineButton.onClick.AddListener(OnDeclineClicked);
+        if (_buyButton != null) _buyButton.onClick.AddListener(OnBuyClicked);
 
         _notificationToast = CreateNotificationToast(canvasGo.transform);
         _notificationToast.SetActive(false);
@@ -202,27 +246,6 @@ public class GameHudUI : MonoBehaviour
         txtRt.offsetMin = Vector2.zero;
         txtRt.offsetMax = Vector2.zero;
 
-        var leaveBtn = new GameObject("LeaveGameButton");
-        leaveBtn.transform.SetParent(canvasGo.transform, false);
-        var leaveRt = leaveBtn.AddComponent<RectTransform>();
-        leaveRt.anchorMin = new Vector2(0, 0);
-        leaveRt.anchorMax = new Vector2(0, 0);
-        leaveRt.pivot = new Vector2(0, 0);
-        leaveRt.anchoredPosition = C != null ? C.leaveButtonPosition : new Vector2(16, 16);
-        leaveRt.sizeDelta = C != null ? C.leaveButtonSize : new Vector2(140, 40);
-        var leaveImg = leaveBtn.AddComponent<Image>();
-        leaveImg.color = new Color(0.5f, 0.25f, 0.25f, 0.9f);
-        _leaveGameButton = leaveBtn.AddComponent<Button>();
-        _leaveGameButton.targetGraphic = leaveImg;
-        var leaveFontSize = C != null ? C.leaveButtonFontSize : 16;
-        var leaveTxt = CreateText(leaveBtn.transform, "Text", Vector2.zero, "Oyunu Bırak", null, leaveFontSize);
-        leaveTxt.alignment = TextAnchor.MiddleCenter;
-        leaveTxt.rectTransform.anchorMin = Vector2.zero;
-        leaveTxt.rectTransform.anchorMax = Vector2.one;
-        leaveTxt.rectTransform.offsetMin = Vector2.zero;
-        leaveTxt.rectTransform.offsetMax = Vector2.zero;
-        _leaveGameButton.onClick.AddListener(OnLeaveGameClicked);
-
         var settingsBtn = new GameObject("SettingsButton");
         settingsBtn.transform.SetParent(canvasGo.transform, false);
         var setRt = settingsBtn.AddComponent<RectTransform>();
@@ -245,10 +268,212 @@ public class GameHudUI : MonoBehaviour
         setTxt.rectTransform.offsetMax = Vector2.zero;
 
         CreateEscapeMenu(canvasGo.transform);
-        CreateQuickChatBar(canvasGo.transform);
         CreateGameDurationPanel(canvasGo.transform);
 
         _uiBuilt = true;
+    }
+
+    private static Transform FindRecursive(Transform root, string name)
+    {
+        if (root == null || string.IsNullOrEmpty(name)) return null;
+        if (root.name == name) return root;
+        for (int i = 0; i < root.childCount; i++)
+        {
+            var found = FindRecursive(root.GetChild(i), name);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private static GameObject GetSlotRootFromToggle(Toggle t)
+    {
+        if (t == null) return null;
+        var tr = t.transform;
+        if (tr.parent != null && tr.parent.name == "HouseRow")
+            return tr.gameObject;
+        var parent = tr.parent;
+        if (parent == null) return tr.gameObject;
+        if (parent.childCount > 0)
+        {
+            for (int i = 0; i < parent.childCount; i++)
+                if (parent.GetChild(i).name == "Box") return parent.gameObject;
+        }
+        if (parent.name.Contains("HouseSlot")) return parent.gameObject;
+        var grand = parent.parent;
+        return grand != null ? grand.gameObject : parent.gameObject;
+    }
+
+    private Toggle EnsureToggleForSlot(Transform slotParent)
+    {
+        var toggleGo = new GameObject("Toggle");
+        toggleGo.transform.SetParent(slotParent, false);
+        var toggleRt = toggleGo.AddComponent<RectTransform>();
+        toggleRt.anchorMin = new Vector2(0.5f, 0);
+        toggleRt.anchorMax = new Vector2(0.5f, 0);
+        toggleRt.pivot = new Vector2(0.5f, 0);
+        toggleRt.anchoredPosition = new Vector2(0, 6);
+        toggleRt.sizeDelta = new Vector2(32, 32);
+        var toggleBg = toggleGo.AddComponent<Image>();
+        toggleBg.color = new Color(0.2f, 0.2f, 0.25f, 1f);
+        var toggle = toggleGo.AddComponent<Toggle>();
+        toggle.targetGraphic = toggleBg;
+        var checkmark = new GameObject("Checkmark");
+        checkmark.transform.SetParent(toggleGo.transform, false);
+        var checkRt = checkmark.AddComponent<RectTransform>();
+        checkRt.anchorMin = Vector2.zero;
+        checkRt.anchorMax = Vector2.one;
+        checkRt.offsetMin = new Vector2(5, 5);
+        checkRt.offsetMax = new Vector2(-5, -5);
+        var checkImg = checkmark.AddComponent<Image>();
+        checkImg.color = new Color(0.2f, 0.9f, 0.3f, 1f);
+        toggle.graphic = checkImg;
+        toggle.isOn = false;
+        return toggle;
+    }
+
+    private void ResolveOverrides(Transform root)
+    {
+        if (root == null) return;
+        _turnText = FindRecursive(root, "TurnText")?.GetComponent<Text>();
+        _rollText = FindRecursive(root, "RollText")?.GetComponent<Text>();
+        _youText = FindRecursive(root, "YouText")?.GetComponent<Text>();
+        _statusText = FindRecursive(root, "StatusText")?.GetComponent<Text>();
+        _moneyText = FindRecursive(root, "MoneyText")?.GetComponent<Text>();
+        _playerSummaryText = FindRecursive(root, "PlayerSummary")?.GetComponent<Text>();
+        if (_playerSummaryText != null) _playerSummaryText.gameObject.SetActive(false);
+        _turnTimerText = FindRecursive(root, "TurnTimer")?.GetComponent<Text>();
+
+        _rollButton = overrideRollButton != null ? overrideRollButton : FindRecursive(root, "RollButton")?.GetComponent<Button>();
+        if (_rollButton != null) { _rollButton.onClick.AddListener(OnRollClicked); _rollButtonImage = _rollButton.GetComponent<Image>(); _rollButtonText = _rollButton.GetComponentInChildren<Text>(); }
+
+        var setBtn = overrideSettingsButton != null ? overrideSettingsButton : FindRecursive(root, "SettingsButton")?.GetComponent<Button>();
+        if (setBtn != null) setBtn.onClick.AddListener(OnSettingsClicked);
+
+        _buyPanel = overrideBuyPanel != null ? overrideBuyPanel : FindRecursive(root, "BuyPanel")?.gameObject;
+        if (_buyPanel != null) {
+            _declineButton = _buyPanel.GetComponentInChildren<Button>();
+            if (_declineButton != null) _declineButton.onClick.AddListener(OnDeclineClicked);
+            _buyPanelText = _buyPanel.GetComponentInChildren<Text>();
+            var buyPanelBtns = _buyPanel.GetComponentsInChildren<Button>();
+            _buyButton = buyPanelBtns.Length > 1 ? buyPanelBtns[1] : null;
+            if (_buyButton != null) { _buyButton.onClick.AddListener(OnBuyClicked); _buyButtonText = _buyButton.GetComponentInChildren<Text>(); }
+            _buyPanelContent = FindRecursive(_buyPanel.transform, "BuyContent")?.gameObject;
+            _buildPanelContent = FindRecursive(_buyPanel.transform, "BuildContent")?.gameObject;
+            _rentOrBuyPanelContent = FindRecursive(_buyPanel.transform, "RentOrBuyContent")?.gameObject;
+            _rentOrBuyInfoText = _rentOrBuyPanelContent != null ? _rentOrBuyPanelContent.GetComponentInChildren<Text>() : null;
+            if (_rentOrBuyPanelContent != null) {
+                var rentBtns = _rentOrBuyPanelContent.GetComponentsInChildren<Button>();
+                _payRentButton = rentBtns.Length > 0 ? rentBtns[0] : null;
+                _buyFromOwnerButton = rentBtns.Length > 1 ? rentBtns[1] : null;
+                if (_payRentButton != null) _payRentButton.onClick.AddListener(OnSkipBuyFromOwnerClicked);
+                if (_buyFromOwnerButton != null) _buyFromOwnerButton.onClick.AddListener(OnBuyFromOwnerClicked);
+            }
+            if (_buildPanelContent != null) {
+                var houseRowT = FindRecursive(_buildPanelContent.transform, "HouseRow");
+                _buildHouseRow = houseRowT != null ? houseRowT.gameObject : null;
+                _houseToggles = null;
+                _houseBoxes = null;
+                if (houseRowT != null && houseRowT.childCount >= 5) {
+                    _houseBoxes = new GameObject[5];
+                    _houseToggles = new Toggle[5];
+                    for (int i = 0; i < 5; i++) {
+                        _houseBoxes[i] = houseRowT.GetChild(i).gameObject;
+                        var existing = _houseBoxes[i].GetComponentInChildren<Toggle>(true);
+                        if (existing != null) {
+                            _houseToggles[i] = existing;
+                        } else {
+                            _houseToggles[i] = EnsureToggleForSlot(_houseBoxes[i].transform);
+                        }
+                        int idx = i;
+                        if (_houseToggles[i] != null)
+                            _houseToggles[i].onValueChanged.AddListener(_ => OnHouseToggleChanged(idx));
+                    }
+                } else {
+                    var allToggles = _buildPanelContent.GetComponentsInChildren<Toggle>(true);
+                    if (allToggles != null && allToggles.Length >= 5) {
+                        _houseToggles = new Toggle[5];
+                        for (int i = 0; i < 5; i++) _houseToggles[i] = allToggles[i];
+                        _houseBoxes = System.Array.ConvertAll(_houseToggles, t => GetSlotRootFromToggle(t));
+                        for (int i = 0; i < 5; i++) {
+                            int idx = i;
+                            if (_houseToggles[i] != null)
+                                _houseToggles[i].onValueChanged.AddListener(_ => OnHouseToggleChanged(idx));
+                        }
+                    }
+                }
+                _houseLabels = _houseBoxes != null ? System.Array.ConvertAll(_houseBoxes, go => go.GetComponentInChildren<Text>(true)) : null;
+                var bottomRow = FindRecursive(_buildPanelContent.transform, "BottomRow");
+                _buildPriceText = bottomRow != null ? FindRecursive(bottomRow, "Price")?.GetComponent<Text>() : null;
+                if (_buildPriceText == null && bottomRow != null)
+                    _buildPriceText = bottomRow.GetComponentInChildren<Text>(true);
+                var buildBtns = _buildPanelContent.GetComponentsInChildren<Button>(true);
+                _buildBuyButton = buildBtns.Length > 0 ? buildBtns[0] : null;
+                if (_buildBuyButton != null) _buildBuyButton.onClick.AddListener(OnBuildBuyClicked);
+                if (buildBtns.Length > 1) buildBtns[1].onClick.AddListener(OnDeclineClicked);
+            }
+        }
+        if (_buyPanel != null) _buyPanel.SetActive(false);
+
+        _notificationToast = overrideNotificationToast != null ? overrideNotificationToast : FindRecursive(root, "NotificationToast")?.gameObject;
+        if (_notificationToast != null) { _notificationText = _notificationToast.GetComponentInChildren<Text>(); _notificationToast.SetActive(false); }
+
+        _gameOverPanel = overrideGameOverPanel != null ? overrideGameOverPanel : FindRecursive(root, "GameOverPanel")?.gameObject;
+        if (_gameOverPanel != null) { _gameOverText = _gameOverPanel.GetComponentInChildren<Text>(); _gameOverMenuButton = _gameOverPanel.GetComponentInChildren<Button>(); if (_gameOverMenuButton != null) _gameOverMenuButton.onClick.AddListener(OnGameOverMenuClicked); _gameOverPanel.SetActive(false); }
+
+        _escapeMenuPanel = overrideEscapeMenuPanel != null ? overrideEscapeMenuPanel : FindRecursive(root, "EscapeMenuPanel")?.gameObject;
+        _escapeMenuBackdrop = FindRecursive(root, "EscapeBackdrop")?.gameObject;
+        if (_escapeMenuPanel != null) {
+            _escapeMenuPanel.SetActive(false);
+            var devam = FindRecursive(_escapeMenuPanel.transform, "Devam")?.GetComponent<Button>();
+            var ayarlar = FindRecursive(_escapeMenuPanel.transform, "Ayarlar")?.GetComponent<Button>();
+            var oyunuBirak = FindRecursive(_escapeMenuPanel.transform, "Oyunu Bırak")?.GetComponent<Button>();
+            if (devam == null) { var btns = _escapeMenuPanel.GetComponentsInChildren<Button>(); if (btns.Length > 0) devam = btns[0]; }
+            if (ayarlar == null) { var btns = _escapeMenuPanel.GetComponentsInChildren<Button>(); if (btns.Length > 1) ayarlar = btns[1]; }
+            if (oyunuBirak == null) { var btns = _escapeMenuPanel.GetComponentsInChildren<Button>(); if (btns.Length > 2) oyunuBirak = btns[2]; }
+            if (devam != null) devam.onClick.AddListener(() => { if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick(); HideEscapeMenu(); });
+            if (ayarlar != null) ayarlar.onClick.AddListener(() => { if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick(); HideEscapeMenu(); OnSettingsClicked(); });
+            if (oyunuBirak != null) oyunuBirak.onClick.AddListener(() => { if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick(); HideEscapeMenu(); OnLeaveGameClicked(); });
+        }
+        if (_escapeMenuBackdrop != null) _escapeMenuBackdrop.SetActive(false);
+
+        _gameDurationPanel = overrideGameDurationPanel != null ? overrideGameDurationPanel : FindRecursive(root, "GameDurationPanel")?.gameObject;
+        if (_gameDurationPanel != null) {
+            var timerT = FindRecursive(_gameDurationPanel.transform, "Timer");
+            if (timerT != null) { _gameDurationText = timerT.GetComponent<Text>(); _gameDurationTextTMP = timerT.GetComponent<TMP_Text>(); }
+            if (_gameDurationText == null && _gameDurationTextTMP == null) { _gameDurationText = _gameDurationPanel.GetComponentInChildren<Text>(); _gameDurationTextTMP = _gameDurationPanel.GetComponentInChildren<TMP_Text>(); }
+        }
+
+        bool allCornerHudsAssigned = overrideCornerHuds != null && overrideCornerHuds.Length >= 4 &&
+            overrideCornerHuds[0] != null && overrideCornerHuds[1] != null && overrideCornerHuds[2] != null && overrideCornerHuds[3] != null;
+        if (allCornerHudsAssigned)
+        {
+            _playerCornerHuds = new PlayerCornerHud[4];
+            for (int i = 0; i < 4; i++)
+            {
+                var r = overrideCornerHuds[i].transform;
+                var avatarT = FindRecursive(r, "AvatarImage");
+                var nameT = FindRecursive(r, "NameText");
+                var moneyT = FindRecursive(r, "MoneyText");
+                var raw = avatarT != null ? avatarT.GetComponent<RawImage>() : null;
+                if (raw == null) raw = overrideCornerHuds[i].GetComponentInChildren<RawImage>();
+                var texts = overrideCornerHuds[i].GetComponentsInChildren<Text>();
+                var tmpTexts = overrideCornerHuds[i].GetComponentsInChildren<TMP_Text>();
+                var nameTextVal = nameT != null ? nameT.GetComponent<Text>() : (texts.Length > 0 ? texts[0] : null);
+                var moneyTextVal = moneyT != null ? moneyT.GetComponent<Text>() : (texts.Length > 1 ? texts[1] : null);
+                var nameTMP = nameT != null ? nameT.GetComponent<TMP_Text>() : (tmpTexts.Length > 0 ? tmpTexts[0] : null);
+                var moneyTMP = moneyT != null ? moneyT.GetComponent<TMP_Text>() : (tmpTexts.Length > 1 ? tmpTexts[1] : null);
+                _playerCornerHuds[i] = new PlayerCornerHud {
+                    root = overrideCornerHuds[i],
+                    avatar = raw,
+                    nameText = nameTextVal,
+                    moneyText = moneyTextVal,
+                    nameTextTMP = nameTMP,
+                    moneyTextTMP = moneyTMP
+                };
+            }
+        }
+        else
+            CreatePlayerCornerHuds(root);
     }
 
     private void CreateEscapeMenu(Transform parent)
@@ -362,9 +587,6 @@ public class GameHudUI : MonoBehaviour
         var textPos = C != null ? C.gameDurationTextPos : new Vector2(0, -12);
         var textSize = C != null ? C.gameDurationTextSize : new Vector2(280, 32);
         var textFontSize = C != null ? C.gameDurationTextFontSize : 24;
-        var rowPos = C != null ? C.gameDurationButtonRowPos : new Vector2(0, 16);
-        var rowSize = C != null ? C.gameDurationButtonRowSize : new Vector2(280, 36);
-        var btnSpacing = C != null ? C.gameDurationButtonSpacing : 95f;
 
         _gameDurationPanel = new GameObject("GameDurationPanel");
         _gameDurationPanel.transform.SetParent(parent, false);
@@ -384,19 +606,6 @@ public class GameHudUI : MonoBehaviour
         _gameDurationText.rectTransform.anchoredPosition = textPos;
         _gameDurationText.rectTransform.sizeDelta = textSize;
         _gameDurationText.alignment = TextAnchor.MiddleCenter;
-
-        var btnRow = new GameObject("ButtonRow");
-        btnRow.transform.SetParent(_gameDurationPanel.transform, false);
-        var rowRt = btnRow.AddComponent<RectTransform>();
-        rowRt.anchorMin = new Vector2(0.5f, 0);
-        rowRt.anchorMax = new Vector2(0.5f, 0);
-        rowRt.pivot = new Vector2(0.5f, 0);
-        rowRt.anchoredPosition = rowPos;
-        rowRt.sizeDelta = rowSize;
-
-        _dur20Btn = CreateSmallButton(btnRow.transform, "20 dk", -btnSpacing, () => SetGameDuration(1200f));
-        _dur60Btn = CreateSmallButton(btnRow.transform, "1 saat", 0, () => SetGameDuration(3600f));
-        _dur120Btn = CreateSmallButton(btnRow.transform, "2 saat", btnSpacing, () => SetGameDuration(7200f));
     }
 
     private Button CreateSmallButton(Transform parent, string text, float x, System.Action onClick)
@@ -429,12 +638,6 @@ public class GameHudUI : MonoBehaviour
         return btn;
     }
 
-    private void SetGameDuration(float seconds)
-    {
-        if (_localPlayer == null) return;
-        _localPlayer.CmdSetGameDuration(seconds);
-    }
-
     private void RefreshGameDurationUI()
     {
         if (_gameDurationPanel == null || GameTurnManager.Instance == null) return;
@@ -445,77 +648,10 @@ public class GameHudUI : MonoBehaviour
             return;
         }
         float duration = turn.gameDurationSeconds;
-        bool isHost = NetworkServer.active;
-
         _gameDurationPanel.SetActive(true);
-        if (duration <= 0f)
-        {
-            _gameDurationText.text = isHost ? "Oyun süresi seçin:" : "Host süre seçiyor...";
-            if (_dur20Btn != null) _dur20Btn.gameObject.SetActive(isHost);
-            if (_dur60Btn != null) _dur60Btn.gameObject.SetActive(isHost);
-            if (_dur120Btn != null) _dur120Btn.gameObject.SetActive(isHost);
-        }
-        else
-        {
-            float remaining = turn.GetRemainingGameTime();
-            int min = Mathf.FloorToInt(remaining / 60f);
-            int sec = Mathf.FloorToInt(remaining % 60f);
-            _gameDurationText.text = $"{min:D2}:{sec:D2}";
-            if (_dur20Btn != null) _dur20Btn.gameObject.SetActive(false);
-            if (_dur60Btn != null) _dur60Btn.gameObject.SetActive(false);
-            if (_dur120Btn != null) _dur120Btn.gameObject.SetActive(false);
-        }
-    }
-
-    private void CreateQuickChatBar(Transform parent)
-    {
-        var barPos = C != null ? C.quickChatBarPos : new Vector2(0, 56);
-        var barSize = C != null ? C.quickChatBarSize : new Vector2(520, 40);
-        var btnW = C != null ? C.quickChatButtonWidth : 72f;
-        var btnH = C != null ? C.quickChatButtonHeight : 36f;
-        var btnSpacing = C != null ? C.quickChatButtonSpacing : 8f;
-        var btnFontSize = C != null ? C.quickChatButtonFontSize : 14;
-
-        _quickChatBar = new GameObject("QuickChatBar");
-        _quickChatBar.transform.SetParent(parent, false);
-        var barRt = _quickChatBar.AddComponent<RectTransform>();
-        barRt.anchorMin = new Vector2(0.5f, 0);
-        barRt.anchorMax = new Vector2(0.5f, 0);
-        barRt.pivot = new Vector2(0.5f, 0);
-        barRt.anchoredPosition = barPos;
-        barRt.sizeDelta = barSize;
-
-        string[] msgs = { "Zar at!", "Bekle", "Hadi", "GG", "Şanslı!", "Hızlı!" };
-        float totalW = msgs.Length * btnW + (msgs.Length - 1) * btnSpacing;
-        float startX = -totalW / 2f + btnW / 2f;
-
-        for (int i = 0; i < msgs.Length; i++)
-        {
-            int idx = i;
-            var btn = new GameObject("Chat_" + i);
-            btn.transform.SetParent(_quickChatBar.transform, false);
-            var btnRt = btn.AddComponent<RectTransform>();
-            btnRt.anchorMin = new Vector2(0.5f, 0.5f);
-            btnRt.anchorMax = new Vector2(0.5f, 0.5f);
-            btnRt.pivot = new Vector2(0.5f, 0.5f);
-            btnRt.anchoredPosition = new Vector2(startX + i * (btnW + btnSpacing), 0);
-            btnRt.sizeDelta = new Vector2(btnW, btnH);
-            var img = btn.AddComponent<Image>();
-            img.color = new Color(0.25f, 0.3f, 0.4f, 0.9f);
-            var b = btn.AddComponent<Button>();
-            b.targetGraphic = img;
-            b.onClick.AddListener(() =>
-            {
-                if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
-                if (_localPlayer != null) _localPlayer.CmdSendQuickChat(idx);
-            });
-            var txt = CreateText(btn.transform, "Text", Vector2.zero, msgs[i], null, btnFontSize);
-            txt.alignment = TextAnchor.MiddleCenter;
-            txt.rectTransform.anchorMin = Vector2.zero;
-            txt.rectTransform.anchorMax = Vector2.one;
-            txt.rectTransform.offsetMin = Vector2.zero;
-            txt.rectTransform.offsetMax = Vector2.zero;
-        }
+        string timeStr = duration <= 0f ? "--:--" : $"{Mathf.FloorToInt(turn.GetRemainingGameTime() / 60f):D2}:{Mathf.FloorToInt(turn.GetRemainingGameTime() % 60f):D2}";
+        if (_gameDurationText != null) _gameDurationText.text = timeStr;
+        if (_gameDurationTextTMP != null) _gameDurationTextTMP.text = timeStr;
     }
 
     private void OnSettingsClicked()
@@ -1205,11 +1341,17 @@ public class GameHudUI : MonoBehaviour
         _localPlayer.CmdDeclineBuy(spaceIndex);
     }
 
+    private void OnBuyClicked()
+    {
+        if (_localPlayer == null || PropertyManager.Instance == null) return;
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
+        int spaceIndex = PropertyManager.Instance.pendingSpaceIndex;
+        if (spaceIndex < 0) return;
+        _localPlayer.CmdBuyProperty(spaceIndex);
+    }
+
     private void RefreshUi()
     {
-        if (_turnText == null || _rollText == null || _youText == null || _statusText == null || _moneyText == null)
-            return;
-
         RefreshPlayerSummary();
         RefreshPlayerCornerHuds();
         RefreshGameDurationUI();
@@ -1235,12 +1377,12 @@ public class GameHudUI : MonoBehaviour
         var turn = GameTurnManager.Instance;
         if (turn == null)
         {
-            _turnText.text = "Turn: waiting turn manager...";
-            _rollText.text = "Last Roll: -";
-            _youText.text = "You: -";
-            _statusText.text = "Durum: sistem hazirlaniyor...";
-            _moneyText.text = _localPlayer != null ? $"Para: {_localPlayer.money}" : "Para: -";
-            if (_rollButton != null) _rollButton.interactable = false;
+            if (_turnText != null) _turnText.text = "Turn: waiting turn manager...";
+            if (_rollText != null) _rollText.text = "Last Roll: -";
+            if (_youText != null) _youText.text = "You: -";
+            if (_statusText != null) _statusText.text = "Durum: sistem hazirlaniyor...";
+            if (_moneyText != null) _moneyText.text = _localPlayer != null ? $"Para: {_localPlayer.money}" : "Para: -";
+            if (_rollButton != null) { _rollButton.gameObject.SetActive(false); _rollButton.interactable = false; }
             if (_rollButtonImage != null) _rollButtonImage.color = _buttonIdle;
             if (_rollButtonText != null) _rollButtonText.text = "ZAR BEKLE";
             if (_buyPanel != null) _buyPanel.SetActive(false);
@@ -1262,47 +1404,41 @@ public class GameHudUI : MonoBehaviour
                 }
             }
             if (_buyPanel != null) _buyPanel.SetActive(false);
-            if (_rollButton != null) _rollButton.interactable = false;
-            if (_leaveGameButton != null) _leaveGameButton.gameObject.SetActive(false);
+            if (_rollButton != null) _rollButton.gameObject.SetActive(false);
             return;
         }
 
         if (_gameOverPanel != null) _gameOverPanel.SetActive(false);
-        if (_leaveGameButton != null) _leaveGameButton.gameObject.SetActive(true);
 
         int activeIndex = turn.currentTurnPlayerIndex;
-        _turnText.text = $"Turn {turn.turnNumber} | Active Player: {activeIndex}";
+        if (_turnText != null) _turnText.text = $"Turn {turn.turnNumber} | Active Player: {activeIndex}";
         if (turn.isRolling)
         {
-            _rollAnimTick -= Time.deltaTime;
-            if (_rollAnimTick <= 0f)
-            {
-                _rollAnimTick = 0.07f;
-                int maxFace = turn != null ? Mathf.Max(1, turn.MaxDice) : 6;
-                _rollAnimValue = Random.Range(1, maxFace + 1);
-            }
-            _rollText.text = $"Rolling: P{turn.rollingPlayerIndex} -> {_rollAnimValue}";
+            if (_rollText != null) _rollText.text = $"Zar atiliyor... P{turn.rollingPlayerIndex}";
+            _rollAnimTick = 0f;
         }
         else
         {
-            _rollText.text = $"Last Roll: P{turn.lastRollPlayerIndex} -> {turn.lastRollValue}";
+            if (_rollText != null) _rollText.text = (turn.lastRollDice1 > 0 || turn.lastRollDice2 > 0)
+                ? $"Son zar: P{turn.lastRollPlayerIndex} -> {turn.lastRollDice1}+{turn.lastRollDice2}={turn.lastRollValue}"
+                : $"Son zar: P{turn.lastRollPlayerIndex} -> {turn.lastRollValue}";
             _rollAnimTick = 0f;
         }
 
         if (_localPlayer == null)
         {
-            _youText.text = "You: waiting local player...";
-            _statusText.text = "Durum: local oyuncu bekleniyor...";
-            _moneyText.text = "Para: -";
-            if (_rollButton != null) _rollButton.interactable = false;
+            if (_youText != null) _youText.text = "You: waiting local player...";
+            if (_statusText != null) _statusText.text = "Durum: local oyuncu bekleniyor...";
+            if (_moneyText != null) _moneyText.text = "Para: -";
+            if (_rollButton != null) { _rollButton.gameObject.SetActive(false); _rollButton.interactable = false; }
             if (_rollButtonImage != null) _rollButtonImage.color = _buttonIdle;
             if (_rollButtonText != null) _rollButtonText.text = "ZAR BEKLE";
             if (_buyPanel != null) _buyPanel.SetActive(false);
             return;
         }
 
-        _youText.text = $"You: P{_localPlayer.playerIndex} | Space: {_localPlayer.currentSpaceIndex}";
-        _moneyText.text = $"Para: {_localPlayer.money}";
+        if (_youText != null) _youText.text = $"You: P{_localPlayer.playerIndex} | Space: {_localPlayer.currentSpaceIndex}";
+        if (_moneyText != null) _moneyText.text = $"Para: {_localPlayer.money}";
 
         bool hasPending = PropertyManager.Instance != null &&
             PropertyManager.Instance.pendingSpaceIndex >= 0 &&
@@ -1316,6 +1452,7 @@ public class GameHudUI : MonoBehaviour
             _buyPanel.SetActive(showAnyPanel);
             if (_buyPanelContent != null) _buyPanelContent.SetActive(false);
             if (_buildPanelContent != null) _buildPanelContent.SetActive(showBuild);
+            if (_buildHouseRow != null) _buildHouseRow.SetActive(showBuild);
             if (_rentOrBuyPanelContent != null) _rentOrBuyPanelContent.SetActive(showRentOrBuy);
 
             if (showBuild && BoardManager.Instance != null)
@@ -1343,17 +1480,19 @@ public class GameHudUI : MonoBehaviour
 
         bool yourTurn = _localPlayer.playerIndex == activeIndex;
         if (turn.isRolling) yourTurn = false;
-        if (_rollButton != null) _rollButton.interactable = yourTurn;
+        if (_rollButton != null)
+        {
+            _rollButton.gameObject.SetActive(yourTurn);
+            _rollButton.interactable = true;
+        }
 
         if (turn.isRolling)
         {
-            _statusText.text = "Durum: Zar donuyor...";
-            if (_rollButtonText != null) _rollButtonText.text = "DONUYOR";
-            if (_rollButtonImage != null) _rollButtonImage.color = _buttonIdle;
+            if (_statusText != null) _statusText.text = "Durum: Zar donuyor...";
         }
         else if (yourTurn)
         {
-            _statusText.text = "Durum: SIRA SENDE - ZAR AT";
+            if (_statusText != null) _statusText.text = "Durum: SIRA SENDE - ZAR AT";
             if (_rollButtonText != null) _rollButtonText.text = "ZAR AT";
             if (_rollButtonImage != null)
             {
@@ -1363,9 +1502,7 @@ public class GameHudUI : MonoBehaviour
         }
         else
         {
-            _statusText.text = "Durum: Rakip zar atiyor...";
-            if (_rollButtonText != null) _rollButtonText.text = "BEKLE";
-            if (_rollButtonImage != null) _rollButtonImage.color = _buttonIdle;
+            if (_statusText != null) _statusText.text = "Durum: Rakip zar atiyor...";
         }
 
         if (_turnTimerText != null && turn != null)
@@ -1453,7 +1590,7 @@ public class GameHudUI : MonoBehaviour
             moneyText.rectTransform.offsetMin = Vector2.zero;
             moneyText.rectTransform.offsetMax = Vector2.zero;
 
-            _playerCornerHuds[i] = new PlayerCornerHud { root = root, avatar = avatar, nameText = nameText, moneyText = moneyText };
+            _playerCornerHuds[i] = new PlayerCornerHud { root = root, avatar = avatar, nameText = nameText, moneyText = moneyText, nameTextTMP = null, moneyTextTMP = null };
             root.SetActive(false);
         }
     }
@@ -1484,8 +1621,12 @@ public class GameHudUI : MonoBehaviour
             if (p == null) { _playerCornerHuds[slot].root.SetActive(false); continue; }
 
             _playerCornerHuds[slot].root.SetActive(true);
-            _playerCornerHuds[slot].nameText.text = string.IsNullOrWhiteSpace(p.steamName) ? $"P{p.playerIndex}" : (p.steamName.Length > 12 ? p.steamName.Substring(0, 10) + ".." : p.steamName);
-            _playerCornerHuds[slot].moneyText.text = $"{p.money} TL";
+            string nameStr = string.IsNullOrWhiteSpace(p.steamName) ? $"P{p.playerIndex}" : (p.steamName.Length > 12 ? p.steamName.Substring(0, 10) + ".." : p.steamName);
+            string moneyStr = $"{p.money} TL";
+            if (_playerCornerHuds[slot].nameText != null) _playerCornerHuds[slot].nameText.text = nameStr;
+            else if (_playerCornerHuds[slot].nameTextTMP != null) _playerCornerHuds[slot].nameTextTMP.text = nameStr;
+            if (_playerCornerHuds[slot].moneyText != null) _playerCornerHuds[slot].moneyText.text = moneyStr;
+            else if (_playerCornerHuds[slot].moneyTextTMP != null) _playerCornerHuds[slot].moneyTextTMP.text = moneyStr;
             if (_playerCornerHuds[slot].avatar != null)
             {
                 AvatarCircleMask.ApplyTo(_playerCornerHuds[slot].avatar);

@@ -1,0 +1,38 @@
+ZAR ATMA ANİMASYONU – KURULUM
+=============================
+
+Projede zar prefab'ları şu klasörde:
+  Assets/Dice_6/Prefabs/
+
+Örnek prefab'lar:
+  - Dice_d6_Plastic Glossy Pure red
+  - Dice_d6_Plastic Glossy Pure blue
+  - Dice_d6_Plastic Glossy Pure write
+  - Dice_d6_Plastic Rough Scratched blue
+  - Dice_d6_Plastic Rough Scratched red
+
+ADIMLAR
+-------
+1) Oyun sahnesini aç (GameScene veya SampleScene).
+
+2) Hierarchy'de boş bir GameObject oluştur:
+   Sağ tık > Create Empty > İsim ver (örn. "DiceRollAnimator").
+
+3) Bu objeye DiceRollAnimator script'ini ekle:
+   Add Component > "Dice Roll Animator" yaz > seç.
+
+4) Inspector'da "Dice Prefab" alanına bir zar prefab'ı at:
+   Project penceresinde Assets/Dice_6/Prefabs/ aç,
+   örn. "Dice_d6_Plastic Glossy Pure red" prefab'ını
+   Dice Prefab kutusuna sürükleyip bırak.
+
+5) (İsteğe bağlı) Zarin görüneceği yeri ayarlamak için:
+   Sahneye başka bir boş GameObject koy, konumunu ayarla,
+   bunu DiceRollAnimator'daki "Spawn Parent" alanına ata.
+   Boş bırakırsan zar, DiceRollAnimator objesinin konumunda spawn olur.
+
+6) Oyunu çalıştır; zar atıldığında animasyon otomatik oynar.
+
+NOT: Zar yüzü rotasyonları (1–6) prefab'a göre değişebilir.
+     Sonuçta yanlış yüz görünürse Inspector'daki Face Rotations
+     değerlerini (1–6 için Euler açıları) prefab'a göre düzenle.
