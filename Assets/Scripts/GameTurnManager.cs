@@ -71,10 +71,20 @@ public class GameTurnManager : NetworkBehaviour
     [SyncVar] public int winnerPlayerIndex = -1;
     [SyncVar] public string winnerName = "";
 
+    /// <summary> 2v2 takımlı mod açık mı? </summary>
+    [SyncVar] public bool isTeamGame = false;
+
     public readonly SyncList<int> bankruptPlayerIndices = new SyncList<int>();
 
     public static string LastNotification { get; private set; }
     public static float LastNotificationTime { get; private set; }
+
+    /// <summary> Şans/Kasa kartı UI için: son gösterilen kart. Client'ta Rpc ile set edilir. </summary>
+    public static string LastCardText { get; private set; }
+    public static string LastCardPlayerName { get; private set; }
+    public static int LastCardAmount { get; private set; }
+    public static bool LastCardIsChance { get; private set; }
+    public static float LastCardTime { get; private set; }
 
     [Server]
     public void ServerSetGameDuration(float seconds)
@@ -82,6 +92,12 @@ public class GameTurnManager : NetworkBehaviour
         if (gameDurationSeconds > 0f) return;
         gameDurationSeconds = seconds;
         gameStartNetworkTime = NetworkTime.time;
+    }
+
+    [Server]
+    public void ServerSetTeamMode(bool teamMode)
+    {
+        isTeamGame = teamMode;
     }
 
     public float GetRemainingGameTime()
@@ -418,6 +434,11 @@ public class GameTurnManager : NetworkBehaviour
             {
                 requester.hasPassedStart = true;
                 requester.money += startBonus;
+                if (GameStatsManager.Instance != null)
+                {
+                    GameStatsManager.Instance.RecordEarned(requester.playerIndex, startBonus);
+                    GameStatsManager.Instance.RecordPassedGo(requester.playerIndex);
+                }
                 RpcPlayCoinGain();
                 RpcShowNotification($"{requester.steamName} Start'tan geçti: +{startBonus} TL");
             }
@@ -426,6 +447,9 @@ public class GameTurnManager : NetworkBehaviour
 
         int landedIndex = requester.currentSpaceIndex;
         Debug.Log($"[Turn] Oyuncu {requester.playerIndex} zar: {dice1}+{dice2}={roll}, yeni index: {landedIndex}");
+
+        if (GameStatsManager.Instance != null)
+            GameStatsManager.Instance.RecordLanding(requester.playerIndex, landedIndex);
 
         isRolling = false;
         rollingPlayerIndex = -1;
@@ -442,6 +466,8 @@ public class GameTurnManager : NetworkBehaviour
                 if (info != null && info.taxAmount > 0)
                 {
                     requester.money = Mathf.Max(0, requester.money - info.taxAmount);
+                    if (GameStatsManager.Instance != null)
+                        GameStatsManager.Instance.RecordSpent(requester.playerIndex, info.taxAmount);
                     RpcShowNotification($"{requester.steamName} vergi ödedi: -{info.taxAmount} TL");
                     if (requester.money <= 0)
                         ServerHandleBankruptcy(requester);
@@ -450,16 +476,22 @@ public class GameTurnManager : NetworkBehaviour
             case SpaceInfo.SpaceType.Chance:
             case SpaceInfo.SpaceType.Community:
                 var card = GetRandomCard(spaceType == SpaceInfo.SpaceType.Chance);
+                bool isChance = (spaceType == SpaceInfo.SpaceType.Chance);
                 if (card.amount != 0)
                 {
                     requester.money = Mathf.Max(0, requester.money + card.amount);
-                    RpcShowCardNotification(card.text, requester.steamName, card.amount);
+                    if (GameStatsManager.Instance != null)
+                    {
+                        if (card.amount > 0) GameStatsManager.Instance.RecordEarned(requester.playerIndex, card.amount);
+                        else GameStatsManager.Instance.RecordSpent(requester.playerIndex, -card.amount);
+                    }
+                    RpcShowCardNotification(isChance, card.text, requester.steamName, card.amount);
                     if (requester.money <= 0)
                         ServerHandleBankruptcy(requester);
                 }
                 else
                 {
-                    RpcShowCardNotification(card.text, requester.steamName, 0);
+                    RpcShowCardNotification(isChance, card.text, requester.steamName, 0);
                 }
                 break;
             case SpaceInfo.SpaceType.Jail:
@@ -662,7 +694,11 @@ public class GameTurnManager : NetworkBehaviour
         if (fee > 0 && requester.money < fee) return;
 
         if (fee > 0)
+        {
             requester.money -= fee;
+            if (GameStatsManager.Instance != null)
+                GameStatsManager.Instance.RecordSpent(requester.playerIndex, fee);
+        }
 
         requester.isInJail = false;
         _jailTurns.Remove(requester.playerIndex);
@@ -776,8 +812,13 @@ public class GameTurnManager : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void RpcShowCardNotification(string cardText, string playerName, int amount)
+    private void RpcShowCardNotification(bool isChance, string cardText, string playerName, int amount)
     {
+        LastCardText = cardText ?? "";
+        LastCardPlayerName = playerName ?? "";
+        LastCardAmount = amount;
+        LastCardIsChance = isChance;
+        LastCardTime = Time.time;
         string msg = amount != 0
             ? $"{playerName}: {cardText} ({(amount > 0 ? "+" : "")}{amount} TL)"
             : $"{playerName}: {cardText}";
@@ -793,6 +834,21 @@ public class GameTurnManager : NetworkBehaviour
         LastNotification = $"{payerName} {amount} TL kira ödedi ({ownerName})";
         LastNotificationTime = Time.time;
         if (AudioManager.Instance != null) AudioManager.Instance.PlayRentPay();
+    }
+
+    [Server]
+    public void ServerSendStatsTo(NetworkConnectionToClient conn)
+    {
+        if (conn == null || !conn.isReady) return;
+        string data = GameStatsManager.Instance != null ? GameStatsManager.Instance.GetSerializedStats() : "";
+        TargetRpcReceiveStats(conn, data);
+    }
+
+    [TargetRpc]
+    private void TargetRpcReceiveStats(NetworkConnection conn, string data)
+    {
+        string formatted = GameStatsManager.FormatStatsForDisplay(data);
+        GameStatsManager.SetLastStatsText(formatted);
     }
 
     [Server]
@@ -813,7 +869,23 @@ public class GameTurnManager : NetworkBehaviour
         Debug.Log($"[Turn] P{player.playerIndex} iflas etti.");
 
         var remaining = GetOrderedPlayers();
-        if (remaining.Count == 1)
+        if (isTeamGame && remaining.Count > 0)
+        {
+            int team0 = 0, team1 = 0;
+            foreach (var p in remaining)
+            {
+                if (p.teamIndex == 0) team0++; else team1++;
+            }
+            if (team0 == 0 || team1 == 0)
+            {
+                int winningTeam = team0 > 0 ? 0 : 1;
+                var first = remaining[0];
+                winnerPlayerIndex = first.playerIndex;
+                winnerName = $"Takım {winningTeam + 1}";
+                Debug.Log($"[Turn] Oyun bitti! Kazanan: {winnerName}");
+            }
+        }
+        else if (remaining.Count == 1)
         {
             winnerPlayerIndex = remaining[0].playerIndex;
             winnerName = remaining[0].steamName ?? $"Oyuncu {remaining[0].playerIndex}";

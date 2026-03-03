@@ -64,6 +64,8 @@ public class LobbyUINew : MonoBehaviour
     [Header("Opsiyonel UI (yapildikca Inspector'dan ata)")]
     [Tooltip("Lobi oyun suresi satiri (Oyun suresi: + 20 dk / 1 saat / 2 saat). Atanirsa koddan uretilmez; icinde 'DurationLabel' (TMP) ve 'Dur20', 'Dur60', 'Dur120' isimli butonlar olmali.")]
     [SerializeField] private GameObject overrideDurationRow;
+    [Tooltip("2v2 Takımlı mod. Host oyunu başlatırken açıksa takım modu kullanılır (P0-P1 Takım 1, P2-P3 Takım 2).")]
+    [SerializeField] private Toggle teamModeToggle;
 
     // -------------------------------------------------------
     // Private State
@@ -685,10 +687,36 @@ public class LobbyUINew : MonoBehaviour
         if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
         if (!NetworkServer.active) return;
         Debug.Log("[LobbyUI] Oyun ba�lat�l�yor...");
+        bool wantTeamMode = GetTeamModeToggleIsOn();
+        if (wantTeamMode && GameNetworkManager.Instance != null)
+            GameNetworkManager.Instance.ServerSetPendingTeamMode(true);
+
         string gameScene = GameNetworkManager.Instance != null ? GameNetworkManager.Instance.GameSceneName : "GameScene";
         if (string.IsNullOrEmpty(gameScene)) gameScene = "GameScene";
-        Debug.Log($"[LobbyUI] Oyun baslatiliyor: {gameScene}");
+        Debug.Log("[LobbyUI] Oyun baslatiliyor: " + gameScene + (wantTeamMode ? " (2v2 Takim modu)" : ""));
         NetworkManager.singleton.ServerChangeScene(gameScene);
+    }
+
+    private bool GetTeamModeToggleIsOn()
+    {
+        if (teamModeToggle != null)
+            return teamModeToggle.isOn;
+        if (lobbyPanel != null)
+        {
+            foreach (var t in lobbyPanel.GetComponentsInChildren<Toggle>(true))
+            {
+                if (t != null && t.gameObject != null)
+                {
+                    string n = t.gameObject.name.ToLowerInvariant();
+                    if (n.Contains("2v2") || n.Contains("team") || n.Contains("takim"))
+                        return t.isOn;
+                }
+            }
+            var fallback = lobbyPanel.GetComponentInChildren<Toggle>(true);
+            if (fallback != null)
+                return fallback.isOn;
+        }
+        return false;
     }
 
     private void OnSettingsClicked()

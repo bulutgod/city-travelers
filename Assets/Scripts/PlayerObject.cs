@@ -42,6 +42,9 @@ public class PlayerObject : NetworkBehaviour
 
     [SyncVar] public bool isReady = false;
 
+    /// <summary> 2v2 modunda takım (0 veya 1). </summary>
+    [SyncVar] public int teamIndex = 0;
+
     private void OnCharacterIndexChanged(int oldVal, int newVal)
     {
         LobbyUINew.Instance?.RefreshLobby();
@@ -144,6 +147,13 @@ public class PlayerObject : NetworkBehaviour
     }
 
     [Command]
+    public void CmdSetPendingTeamMode(bool teamMode)
+    {
+        if (GameNetworkManager.Instance != null)
+            GameNetworkManager.Instance.ServerSetPendingTeamMode(teamMode);
+    }
+
+    [Command]
     public void CmdRequestAddBot()
     {
         if (GameNetworkManager.Instance != null)
@@ -163,6 +173,20 @@ public class PlayerObject : NetworkBehaviour
         ulong id = steamId != 0 ? steamId : (SteamClient.IsValid ? SteamClient.SteamId.Value : 0);
         if (GameNetworkManager.Instance != null)
             GameNetworkManager.Instance.ServerMarkVoluntaryLeave(id);
+    }
+
+    [Command]
+    public void CmdRequestRematch()
+    {
+        if (GameNetworkManager.Instance != null && connectionToClient != null)
+            GameNetworkManager.Instance.ServerRecordRematch(connectionToClient);
+    }
+
+    [Command]
+    public void CmdRequestStats()
+    {
+        if (GameTurnManager.Instance != null && connectionToClient != null)
+            GameTurnManager.Instance.ServerSendStatsTo(connectionToClient);
     }
 
     [Server]

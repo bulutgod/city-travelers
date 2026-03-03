@@ -67,12 +67,14 @@ public class GameHudUI : MonoBehaviour
     private GameObject _buildHouseRow;
     private GameObject _rentOrBuyPanelContent;
     private Text _rentOrBuyInfoText;
+    private TMP_Text _rentOrBuyInfoTextTMP;
     private Button _payRentButton;
     private Button _buyFromOwnerButton;
     private Toggle[] _houseToggles;
     private GameObject[] _houseBoxes;
     private Text[] _houseLabels;
     private Text _buildPriceText;
+    private TMP_Text _buildPriceTextTMP;
     private Button _buildBuyButton;
     private int _selectedHouseCount;
     private GameObject _notificationToast;
@@ -85,6 +87,28 @@ public class GameHudUI : MonoBehaviour
     private bool _uiBuilt;
     private int _lastPendingSpace = -1;
     private const float NotificationDuration = 4f;
+
+    private GameObject _cardPanel;
+    private RectTransform _cardPanelRect;
+    private Text _cardTitleText;
+    private Text _cardBodyText;
+    private Text _cardAmountText;
+    private Button _cardOkButton;
+    private bool _cardDismissed;
+    private float _lastShownCardTime = -1f;
+    private float _cardFlipProgress = 1f;
+    private const float CardShowDuration = 20f;
+    private const float CardFlipAnimDuration = 0.35f;
+
+    private GameObject _statsPanel;
+    private Text _statsPanelText;
+    private Button _statsCloseButton;
+    private Button _statsButton;
+    private bool _statsRequested;
+
+    private Button _rematchButton;
+    private GameObject _spectatorLabel;
+    private GameObject _teamModeLabel;
 
     private PlayerObject _localPlayer;
     private readonly Color _buttonActive = new Color(0.15f, 0.7f, 0.2f, 0.95f);
@@ -132,11 +156,14 @@ public class GameHudUI : MonoBehaviour
         _gameDurationPanel = null; _gameDurationText = null; _gameDurationTextTMP = null;
         _rollButton = null; _rollButtonImage = null; _rollButtonText = null;
         _buyPanel = null; _buyPanelText = null; _buyButton = _declineButton = null; _buyButtonText = null;
-        _buyPanelContent = _buildPanelContent = _buildHouseRow = _rentOrBuyPanelContent = null; _rentOrBuyInfoText = null;
+        _buyPanelContent = _buildPanelContent = _buildHouseRow = _rentOrBuyPanelContent = null; _rentOrBuyInfoText = null; _rentOrBuyInfoTextTMP = null;
         _payRentButton = _buyFromOwnerButton = null; _houseToggles = null; _houseBoxes = null; _houseLabels = null;
-        _buildPriceText = null; _buildBuyButton = null; _notificationToast = null; _notificationText = null;
+        _buildPriceText = null; _buildPriceTextTMP = null; _buildBuyButton = null; _notificationToast = null; _notificationText = null;
         _gameOverPanel = null; _gameOverText = null; _gameOverMenuButton = null;
         _escapeMenuPanel = null; _escapeMenuBackdrop = null;
+        _cardPanel = null; _cardPanelRect = null; _cardTitleText = null; _cardBodyText = null; _cardAmountText = null; _cardOkButton = null;
+        _statsPanel = null; _statsPanelText = null; _statsCloseButton = null; _statsButton = null;
+        _rematchButton = null; _spectatorLabel = null; _teamModeLabel = null;
     }
 
     private void EnsureUiBuilt()
@@ -293,8 +320,64 @@ public class GameHudUI : MonoBehaviour
         setTxt.rectTransform.offsetMin = Vector2.zero;
         setTxt.rectTransform.offsetMax = Vector2.zero;
 
+        var statsBtnGo = new GameObject("StatsButton");
+        statsBtnGo.transform.SetParent(canvasGo.transform, false);
+        var statsRt = statsBtnGo.AddComponent<RectTransform>();
+        statsRt.anchorMin = new Vector2(1, 1);
+        statsRt.anchorMax = new Vector2(1, 1);
+        statsRt.pivot = new Vector2(1, 1);
+        statsRt.anchoredPosition = new Vector2(-110, -16);
+        statsRt.sizeDelta = new Vector2(90, 36);
+        var statsImg = statsBtnGo.AddComponent<Image>();
+        statsImg.color = new Color(0.3f, 0.35f, 0.45f, 0.9f);
+        _statsButton = statsBtnGo.AddComponent<Button>();
+        _statsButton.targetGraphic = statsImg;
+        _statsButton.onClick.AddListener(OnStatsClicked);
+        var statsTxt = CreateText(statsBtnGo.transform, "Text", Vector2.zero, "İstatistik", null, 18);
+        statsTxt.alignment = TextAnchor.MiddleCenter;
+        statsTxt.rectTransform.anchorMin = Vector2.zero;
+        statsTxt.rectTransform.anchorMax = Vector2.one;
+        statsTxt.rectTransform.offsetMin = Vector2.zero;
+        statsTxt.rectTransform.offsetMax = Vector2.zero;
+
+        _spectatorLabel = new GameObject("SpectatorLabel");
+        _spectatorLabel.transform.SetParent(canvasGo.transform, false);
+        var specRt = _spectatorLabel.AddComponent<RectTransform>();
+        specRt.anchorMin = new Vector2(0.5f, 1);
+        specRt.anchorMax = new Vector2(0.5f, 1);
+        specRt.pivot = new Vector2(0.5f, 1);
+        specRt.anchoredPosition = new Vector2(0, -60);
+        specRt.sizeDelta = new Vector2(400, 36);
+        var specTxt = CreateText(_spectatorLabel.transform, "Text", Vector2.zero, "İzleyici modundasınız", new Vector2(400, 36), 22);
+        specTxt.alignment = TextAnchor.MiddleCenter;
+        specTxt.color = new Color(0.9f, 0.7f, 0.3f, 1f);
+        specTxt.rectTransform.anchorMin = Vector2.zero;
+        specTxt.rectTransform.anchorMax = Vector2.one;
+        _spectatorLabel.SetActive(false);
+
+        _teamModeLabel = new GameObject("TeamModeLabel");
+        _teamModeLabel.transform.SetParent(canvasGo.transform, false);
+        var teamRt = _teamModeLabel.AddComponent<RectTransform>();
+        teamRt.anchorMin = new Vector2(0, 1);
+        teamRt.anchorMax = new Vector2(0, 1);
+        teamRt.pivot = new Vector2(0, 1);
+        teamRt.anchoredPosition = new Vector2(16, -16);
+        teamRt.sizeDelta = new Vector2(160, 28);
+        var teamTxt = CreateText(_teamModeLabel.transform, "Text", Vector2.zero, "2v2 TAKIM MODU", new Vector2(160, 28), 16);
+        teamTxt.alignment = TextAnchor.MiddleCenter;
+        teamTxt.color = new Color(0.5f, 0.75f, 1f, 1f);
+        teamTxt.fontStyle = FontStyle.Bold;
+        teamTxt.rectTransform.anchorMin = Vector2.zero;
+        teamTxt.rectTransform.anchorMax = Vector2.one;
+        var teamBg = _teamModeLabel.AddComponent<Image>();
+        teamBg.color = new Color(0.1f, 0.2f, 0.4f, 0.85f);
+        teamBg.raycastTarget = false;
+        _teamModeLabel.SetActive(false);
+
         CreateEscapeMenu(canvasGo.transform);
         CreateGameDurationPanel(canvasGo.transform);
+        CreateCardPanel(canvasGo.transform);
+        CreateStatsPanel(canvasGo.transform);
 
         _uiBuilt = true;
     }
@@ -425,6 +508,11 @@ public class GameHudUI : MonoBehaviour
 
             // --- Kira / Sahibinden satın alma içeriği (RentOrBuyContent) ---
             _rentOrBuyInfoText = _rentOrBuyPanelContent != null ? _rentOrBuyPanelContent.GetComponentInChildren<Text>() : null;
+            var infoTr = _rentOrBuyPanelContent != null ? FindRecursive(_rentOrBuyPanelContent.transform, "Info") : null;
+            if (infoTr != null) {
+                if (_rentOrBuyInfoText == null) _rentOrBuyInfoText = infoTr.GetComponent<Text>();
+                _rentOrBuyInfoTextTMP = infoTr.GetComponent<TMP_Text>();
+            }
             if (_rentOrBuyPanelContent != null) {
                 // Önce isimle eşle: DeclineButton / BuyButton veya eski isimler
                 var declineRentTr = FindRecursive(_rentOrBuyPanelContent.transform, "DeclineButton")
@@ -481,9 +569,15 @@ public class GameHudUI : MonoBehaviour
                 }
                 _houseLabels = _houseBoxes != null ? System.Array.ConvertAll(_houseBoxes, go => go.GetComponentInChildren<Text>(true)) : null;
                 var bottomRow = FindRecursive(_buildPanelContent.transform, "BottomRow");
-                _buildPriceText = bottomRow != null ? FindRecursive(bottomRow, "Price")?.GetComponent<Text>() : null;
+                var priceTr = bottomRow != null ? FindRecursive(bottomRow, "Price") : null;
+                if (priceTr != null) {
+                    _buildPriceText = priceTr.GetComponent<Text>();
+                    _buildPriceTextTMP = priceTr.GetComponent<TMP_Text>();
+                }
                 if (_buildPriceText == null && bottomRow != null)
                     _buildPriceText = bottomRow.GetComponentInChildren<Text>(true);
+                if (_buildPriceTextTMP == null && bottomRow != null)
+                    _buildPriceTextTMP = bottomRow.GetComponentInChildren<TMP_Text>(true);
                 var buildBtns = _buildPanelContent.GetComponentsInChildren<Button>(true);
                 _buildBuyButton = buildBtns.Length > 0 ? buildBtns[0] : null;
                 if (_buildBuyButton != null) _buildBuyButton.onClick.AddListener(OnBuildBuyClicked);
@@ -1065,22 +1159,25 @@ public class GameHudUI : MonoBehaviour
 
     private void RefreshRentOrBuyPanel()
     {
-        if (_rentOrBuyInfoText == null || _localPlayer == null || PropertyManager.Instance == null || BoardManager.Instance == null) return;
+        if ((_rentOrBuyInfoText == null && _rentOrBuyInfoTextTMP == null) || _localPlayer == null || PropertyManager.Instance == null || BoardManager.Instance == null) return;
         int spaceIndex = PropertyManager.Instance.pendingSpaceIndex;
         if (spaceIndex < 0) return;
 
         var info = BoardManager.Instance.GetSpaceInfo(spaceIndex);
         int baseRent = info != null ? info.rent : 0;
         int rent = PropertyManager.Instance.GetRentWithHouses(spaceIndex, baseRent);
-        int buyPrice = rent * 2;
+        // Sahibinden satın alma fiyatı: kira*2; kira 0 ise purchasePrice kullan (veri eksikse 0 TL yerine anlamlı fiyat göster)
+        int buyPrice = (rent > 0) ? (rent * 2) : (info != null ? info.purchasePrice : 0);
         string spaceName = info != null && !string.IsNullOrWhiteSpace(info.displayName) ? info.displayName : $"Alan {spaceIndex}";
 
-        _rentOrBuyInfoText.text = $"Kira ödendi: {rent} TL\n{spaceName} mülkünü {buyPrice} TL'ye satın almak ister misin?";
+        string msg = $"Kira ödendi: {rent} TL\n{spaceName} mülkünü {buyPrice} TL'ye satın almak ister misin?";
+        if (_rentOrBuyInfoText != null) _rentOrBuyInfoText.text = msg;
+        if (_rentOrBuyInfoTextTMP != null) _rentOrBuyInfoTextTMP.text = msg;
 
         if (_payRentButton != null)
             _payRentButton.interactable = true;
         if (_buyFromOwnerButton != null)
-            _buyFromOwnerButton.interactable = _localPlayer.money >= buyPrice;
+            _buyFromOwnerButton.interactable = rent > 0 && _localPlayer.money >= buyPrice;
     }
 
     private GameObject CreateHouseSlot(Transform parent, int houseNum, Vector2 slotSize)
@@ -1255,7 +1352,7 @@ public class GameHudUI : MonoBehaviour
 
     private void RefreshBuildPrice()
     {
-        if (_buildPriceText == null || _buildBuyButton == null || PropertyManager.Instance == null || BoardManager.Instance == null || _localPlayer == null) return;
+        if ((_buildPriceText == null && _buildPriceTextTMP == null) || _buildBuyButton == null || PropertyManager.Instance == null || BoardManager.Instance == null || _localPlayer == null) return;
         int spaceIndex = PropertyManager.Instance.pendingSpaceIndex;
         if (spaceIndex < 0) return;
         var info = BoardManager.Instance.GetSpaceInfo(spaceIndex);
@@ -1273,7 +1370,9 @@ public class GameHudUI : MonoBehaviour
         {
             total = housePrice * _selectedHouseCount;
         }
-        _buildPriceText.text = $"{total} TL";
+        string priceStr = $"{total} TL";
+        if (_buildPriceText != null) _buildPriceText.text = priceStr;
+        if (_buildPriceTextTMP != null) _buildPriceTextTMP.text = priceStr;
         bool canBuy = isEmpty ? (_selectedHouseCount >= 1 && _localPlayer.money >= total) : (_selectedHouseCount >= 1 && _localPlayer.money >= total);
         _buildBuyButton.interactable = canBuy;
     }
@@ -1285,6 +1384,121 @@ public class GameHudUI : MonoBehaviour
         int spaceIndex = PropertyManager.Instance.pendingSpaceIndex;
         if (spaceIndex < 0 || _selectedHouseCount < 1) return;
         _localPlayer.CmdBuyOrBuild(spaceIndex, _selectedHouseCount);
+    }
+
+    private void CreateCardPanel(Transform parent)
+    {
+        _cardPanel = new GameObject("CardPanel");
+        _cardPanel.transform.SetParent(parent, false);
+        var panelRt = _cardPanel.AddComponent<RectTransform>();
+        panelRt.anchorMin = Vector2.zero;
+        panelRt.anchorMax = Vector2.one;
+        panelRt.offsetMin = Vector2.zero;
+        panelRt.offsetMax = Vector2.zero;
+        var panelBg = _cardPanel.AddComponent<Image>();
+        panelBg.color = new Color(0, 0, 0, 0.6f);
+        panelBg.raycastTarget = true;
+
+        var cardGo = new GameObject("Card");
+        cardGo.transform.SetParent(_cardPanel.transform, false);
+        _cardPanelRect = cardGo.AddComponent<RectTransform>();
+        _cardPanelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        _cardPanelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        _cardPanelRect.pivot = new Vector2(0.5f, 0.5f);
+        _cardPanelRect.anchoredPosition = Vector2.zero;
+        _cardPanelRect.sizeDelta = new Vector2(380, 220);
+        var cardImg = cardGo.AddComponent<Image>();
+        cardImg.color = new Color(0.95f, 0.9f, 0.75f, 1f);
+
+        _cardTitleText = CreateText(cardGo.transform, "Title", new Vector2(0, 75), "ŞANS", new Vector2(340, 32), 24);
+        _cardTitleText.alignment = TextAnchor.MiddleCenter;
+        _cardTitleText.fontStyle = FontStyle.Bold;
+        _cardTitleText.color = new Color(0.2f, 0.15f, 0.1f, 1f);
+
+        _cardBodyText = CreateText(cardGo.transform, "Body", new Vector2(0, 10), "", new Vector2(340, 90), 18);
+        _cardBodyText.alignment = TextAnchor.MiddleCenter;
+        _cardBodyText.color = new Color(0.15f, 0.1f, 0.05f, 1f);
+
+        _cardAmountText = CreateText(cardGo.transform, "Amount", new Vector2(0, -45), "", new Vector2(340, 28), 22);
+        _cardAmountText.alignment = TextAnchor.MiddleCenter;
+        _cardAmountText.fontStyle = FontStyle.Bold;
+
+        var okGo = new GameObject("OkButton");
+        okGo.transform.SetParent(cardGo.transform, false);
+        var okRt = okGo.AddComponent<RectTransform>();
+        okRt.anchorMin = new Vector2(0.5f, 0);
+        okRt.anchorMax = new Vector2(0.5f, 0);
+        okRt.pivot = new Vector2(0.5f, 0);
+        okRt.anchoredPosition = new Vector2(0, -85);
+        okRt.sizeDelta = new Vector2(120, 36);
+        var okImg = okGo.AddComponent<Image>();
+        okImg.color = new Color(0.25f, 0.5f, 0.3f, 1f);
+        _cardOkButton = okGo.AddComponent<Button>();
+        _cardOkButton.targetGraphic = okImg;
+        var okTxt = CreateText(okGo.transform, "Text", Vector2.zero, "Tamam", null, 20);
+        okTxt.alignment = TextAnchor.MiddleCenter;
+        okTxt.rectTransform.anchorMin = Vector2.zero;
+        okTxt.rectTransform.anchorMax = Vector2.one;
+        okTxt.rectTransform.offsetMin = Vector2.zero;
+        okTxt.rectTransform.offsetMax = Vector2.zero;
+        _cardOkButton.onClick.AddListener(OnCardOkClicked);
+
+        _cardPanel.SetActive(false);
+    }
+
+    private void OnCardOkClicked()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
+        _cardDismissed = true;
+    }
+
+    private void CreateStatsPanel(Transform parent)
+    {
+        _statsPanel = new GameObject("StatsPanel");
+        _statsPanel.transform.SetParent(parent, false);
+        var rt = _statsPanel.AddComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+        var bg = _statsPanel.AddComponent<Image>();
+        bg.color = new Color(0.08f, 0.08f, 0.12f, 0.95f);
+
+        var title = CreateText(_statsPanel.transform, "Title", new Vector2(0, 280), "İstatistikler", new Vector2(500, 40), 26);
+        title.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        title.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        title.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        title.alignment = TextAnchor.MiddleCenter;
+        title.fontStyle = FontStyle.Bold;
+
+        _statsPanelText = CreateText(_statsPanel.transform, "Content", new Vector2(0, 0), "Yükleniyor...", new Vector2(600, 450), 16);
+        _statsPanelText.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        _statsPanelText.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        _statsPanelText.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        _statsPanelText.alignment = TextAnchor.UpperLeft;
+        _statsPanelText.supportRichText = true;
+
+        var closeGo = new GameObject("CloseButton");
+        closeGo.transform.SetParent(_statsPanel.transform, false);
+        var closeRt = closeGo.AddComponent<RectTransform>();
+        closeRt.anchorMin = new Vector2(0.5f, 0);
+        closeRt.anchorMax = new Vector2(0.5f, 0);
+        closeRt.pivot = new Vector2(0.5f, 0);
+        closeRt.anchoredPosition = new Vector2(0, -280);
+        closeRt.sizeDelta = new Vector2(140, 40);
+        var closeImg = closeGo.AddComponent<Image>();
+        closeImg.color = new Color(0.4f, 0.3f, 0.3f, 1f);
+        _statsCloseButton = closeGo.AddComponent<Button>();
+        _statsCloseButton.targetGraphic = closeImg;
+        var closeTxt = CreateText(closeGo.transform, "Text", Vector2.zero, "Kapat", null, 20);
+        closeTxt.alignment = TextAnchor.MiddleCenter;
+        closeTxt.rectTransform.anchorMin = Vector2.zero;
+        closeTxt.rectTransform.anchorMax = Vector2.one;
+        closeTxt.rectTransform.offsetMin = Vector2.zero;
+        closeTxt.rectTransform.offsetMax = Vector2.zero;
+        _statsCloseButton.onClick.AddListener(() => { if (_statsPanel != null) _statsPanel.SetActive(false); if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick(); });
+
+        _statsPanel.SetActive(false);
     }
 
     private GameObject CreateNotificationToast(Transform parent)
@@ -1379,7 +1593,47 @@ public class GameHudUI : MonoBehaviour
         menuTxt.rectTransform.offsetMax = Vector2.zero;
         _gameOverMenuButton.onClick.AddListener(OnGameOverMenuClicked);
 
+        var rematchGo = new GameObject("RematchButton");
+        rematchGo.transform.SetParent(go.transform, false);
+        var rematchRt = rematchGo.AddComponent<RectTransform>();
+        rematchRt.anchorMin = new Vector2(0.5f, menuAnchorY - 0.12f);
+        rematchRt.anchorMax = new Vector2(0.5f, menuAnchorY - 0.12f);
+        rematchRt.pivot = new Vector2(0.5f, 0.5f);
+        rematchRt.sizeDelta = menuSize;
+        var rematchImg = rematchGo.AddComponent<Image>();
+        rematchImg.color = new Color(0.2f, 0.6f, 0.35f, 1f);
+        _rematchButton = rematchGo.AddComponent<Button>();
+        _rematchButton.targetGraphic = rematchImg;
+        var rematchTxt = CreateText(rematchGo.transform, "Text", Vector2.zero, "Tekrar Oyna", null, menuFontSize);
+        rematchTxt.alignment = TextAnchor.MiddleCenter;
+        rematchTxt.rectTransform.anchorMin = Vector2.zero;
+        rematchTxt.rectTransform.anchorMax = Vector2.one;
+        rematchTxt.rectTransform.offsetMin = Vector2.zero;
+        rematchTxt.rectTransform.offsetMax = Vector2.zero;
+        _rematchButton.onClick.AddListener(OnRematchClicked);
+
         return go;
+    }
+
+    private void OnRematchClicked()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
+        if (_localPlayer != null)
+            _localPlayer.CmdRequestRematch();
+    }
+
+    private void OnStatsClicked()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
+        if (_statsPanel != null)
+        {
+            _statsPanel.SetActive(true);
+            _statsPanelText.text = "Yükleniyor...";
+            if (_localPlayer != null && GameStatsManager.Instance != null)
+                _localPlayer.CmdRequestStats();
+            else if (GameStatsManager.Instance == null)
+                _statsPanelText.text = "İstatistikler mevcut değil.";
+        }
     }
 
     private void OnGameOverMenuClicked()
@@ -1459,6 +1713,58 @@ public class GameHudUI : MonoBehaviour
             }
         }
 
+        if (_cardPanel != null && GameTurnManager.Instance != null)
+        {
+            float cardTime = GameTurnManager.LastCardTime;
+            if (cardTime > 0 && (Time.time - cardTime) < CardShowDuration && !_cardDismissed)
+            {
+                if (Mathf.Abs(cardTime - _lastShownCardTime) > 0.01f)
+                {
+                    _lastShownCardTime = cardTime;
+                    _cardDismissed = false;
+                    _cardFlipProgress = 0f;
+                }
+                _cardPanel.SetActive(true);
+                if (_cardTitleText != null) _cardTitleText.text = GameTurnManager.LastCardIsChance ? "ŞANS" : "KASA";
+                if (_cardBodyText != null) _cardBodyText.text = GameTurnManager.LastCardText;
+                if (_cardAmountText != null)
+                {
+                    int amt = GameTurnManager.LastCardAmount;
+                    _cardAmountText.text = amt != 0 ? $"{(amt > 0 ? "+" : "")}{amt} TL" : "";
+                    _cardAmountText.color = amt >= 0 ? new Color(0.1f, 0.5f, 0.2f, 1f) : new Color(0.7f, 0.2f, 0.2f, 1f);
+                }
+                if (_cardFlipProgress < 1f)
+                {
+                    _cardFlipProgress += Time.deltaTime / CardFlipAnimDuration;
+                    if (_cardFlipProgress > 1f) _cardFlipProgress = 1f;
+                    float s = _cardFlipProgress <= 0.5f
+                        ? Mathf.Lerp(0f, 1.1f, _cardFlipProgress * 2f)
+                        : Mathf.Lerp(1.1f, 1f, (_cardFlipProgress - 0.5f) * 2f);
+                    if (_cardPanelRect != null) _cardPanelRect.localScale = new Vector3(1f, s, 1f);
+                }
+            }
+            else
+            {
+                _cardPanel.SetActive(false);
+                if (_cardPanelRect != null) _cardPanelRect.localScale = Vector3.one;
+            }
+        }
+
+        if (_statsPanel != null && _statsPanel.activeSelf && GameStatsManager.Instance != null && _statsPanelText != null)
+        {
+            string stats = GameStatsManager.GetLastStatsText();
+            if (!string.IsNullOrEmpty(stats)) _statsPanelText.text = stats;
+        }
+
+        if (_spectatorLabel != null && _localPlayer != null && GameTurnManager.Instance != null)
+        {
+            bool isSpectator = GameTurnManager.Instance.bankruptPlayerIndices.Contains(_localPlayer.playerIndex);
+            _spectatorLabel.SetActive(isSpectator);
+        }
+
+        if (_teamModeLabel != null && GameTurnManager.Instance != null)
+            _teamModeLabel.SetActive(GameTurnManager.Instance.isTeamGame);
+
         var turn = GameTurnManager.Instance;
         if (turn == null)
         {
@@ -1496,7 +1802,10 @@ public class GameHudUI : MonoBehaviour
         if (_gameOverPanel != null) _gameOverPanel.SetActive(false);
 
         int activeIndex = turn.currentTurnPlayerIndex;
-        if (_turnText != null) _turnText.text = $"Turn {turn.turnNumber} | Active Player: {activeIndex}";
+        if (_turnText != null)
+            _turnText.text = turn.isTeamGame
+                ? $"Turn {turn.turnNumber} | 2v2 | Aktif: P{activeIndex}"
+                : $"Turn {turn.turnNumber} | Active Player: {activeIndex}";
         if (turn.isRolling)
         {
             if (_rollText != null) _rollText.text = $"Zar atiliyor... P{turn.rollingPlayerIndex}";
@@ -1525,7 +1834,10 @@ public class GameHudUI : MonoBehaviour
         if (_youText != null)
         {
             string jailSuffix = _localPlayer.isInJail ? " | HAPİS" : "";
-            _youText.text = $"You: P{_localPlayer.playerIndex} | Space: {_localPlayer.currentSpaceIndex}{jailSuffix}";
+            if (turn.isTeamGame)
+                _youText.text = $"You: P{_localPlayer.playerIndex} | Takım {_localPlayer.teamIndex + 1} | Space: {_localPlayer.currentSpaceIndex}{jailSuffix}";
+            else
+                _youText.text = $"You: P{_localPlayer.playerIndex} | Space: {_localPlayer.currentSpaceIndex}{jailSuffix}";
         }
         if (_moneyText != null) _moneyText.text = $"Para: {_localPlayer.money}";
 
@@ -1708,17 +2020,35 @@ public class GameHudUI : MonoBehaviour
     {
         if (_playerCornerHuds == null) return;
         var players = GetOrderedPlayersForSummary();
+        bool isTeamGame = GameTurnManager.Instance != null && GameTurnManager.Instance.isTeamGame;
+
         var ordered = new System.Collections.Generic.List<PlayerObject>();
-        PlayerObject localFirst = null;
-        foreach (var p in players)
+        if (isTeamGame)
         {
-            if (p != null && p.isLocalPlayer) localFirst = p;
+            players.Sort((a, b) =>
+            {
+                int ta = a != null ? a.teamIndex : 0;
+                int tb = b != null ? b.teamIndex : 0;
+                if (ta != tb) return ta.CompareTo(tb);
+                return (a != null ? a.playerIndex : 0).CompareTo(b != null ? b.playerIndex : 0);
+            });
+            foreach (var p in players)
+                if (p != null) ordered.Add(p);
         }
-        if (localFirst != null) ordered.Add(localFirst);
-        foreach (var p in players)
+        else
         {
-            if (p != null && p != localFirst) ordered.Add(p);
+            PlayerObject localFirst = null;
+            foreach (var p in players)
+                if (p != null && p.isLocalPlayer) localFirst = p;
+            if (localFirst != null) ordered.Add(localFirst);
+            foreach (var p in players)
+                if (p != null && p != localFirst) ordered.Add(p);
         }
+
+        Color team0Color = new Color(0.12f, 0.18f, 0.38f, 0.92f);
+        Color team1Color = new Color(0.38f, 0.18f, 0.12f, 0.92f);
+        Color defaultHudColor = new Color(0.1f, 0.1f, 0.15f, 0.85f);
+
         for (int slot = 0; slot < 4; slot++)
         {
             if (slot >= ordered.Count)
@@ -1730,7 +2060,21 @@ public class GameHudUI : MonoBehaviour
             if (p == null) { _playerCornerHuds[slot].root.SetActive(false); continue; }
 
             _playerCornerHuds[slot].root.SetActive(true);
+
+            if (isTeamGame)
+            {
+                var bg = _playerCornerHuds[slot].root.GetComponent<Image>();
+                if (bg != null) bg.color = p.teamIndex == 0 ? team0Color : team1Color;
+            }
+            else
+            {
+                var bg = _playerCornerHuds[slot].root.GetComponent<Image>();
+                if (bg != null) bg.color = defaultHudColor;
+            }
+
             string nameStr = string.IsNullOrWhiteSpace(p.steamName) ? $"P{p.playerIndex}" : (p.steamName.Length > 12 ? p.steamName.Substring(0, 10) + ".." : p.steamName);
+            if (isTeamGame)
+                nameStr = $"Takım {p.teamIndex + 1} · " + nameStr;
             string moneyStr = $"{p.money} TL";
             if (_playerCornerHuds[slot].nameText != null) _playerCornerHuds[slot].nameText.text = nameStr;
             else if (_playerCornerHuds[slot].nameTextTMP != null) _playerCornerHuds[slot].nameTextTMP.text = nameStr;
@@ -1738,7 +2082,6 @@ public class GameHudUI : MonoBehaviour
             else if (_playerCornerHuds[slot].moneyTextTMP != null) _playerCornerHuds[slot].moneyTextTMP.text = moneyStr;
             if (_playerCornerHuds[slot].avatar != null)
             {
-                // Avatarlar kare (GameScene'de yuvarlak maske uygulanmaz)
                 if (p.avatarTexture != null)
                 {
                     _playerCornerHuds[slot].avatar.texture = p.avatarTexture;
@@ -1762,13 +2105,17 @@ public class GameHudUI : MonoBehaviour
             _playerSummaryText.text = "";
             return;
         }
+        bool isTeamGame = GameTurnManager.Instance != null && GameTurnManager.Instance.isTeamGame;
         var parts = new System.Collections.Generic.List<string>();
         foreach (var p in players)
         {
             if (p == null) continue;
             string name = string.IsNullOrWhiteSpace(p.steamName) ? $"P{p.playerIndex}" : p.steamName;
             if (name.Length > 10) name = name.Substring(0, 8) + "..";
-            parts.Add($"{name}: {p.money} TL");
+            if (isTeamGame)
+                parts.Add($"[T{p.teamIndex + 1}] {name}: {p.money} TL");
+            else
+                parts.Add($"{name}: {p.money} TL");
         }
         _playerSummaryText.text = string.Join(" | ", parts);
     }

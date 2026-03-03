@@ -367,6 +367,11 @@ public class PropertyManager : NetworkBehaviour
         if (payer == null || owner == null || amount <= 0) return;
         payer.money = Mathf.Max(0, payer.money - amount);
         owner.money += amount;
+        if (GameStatsManager.Instance != null)
+        {
+            GameStatsManager.Instance.RecordRentPaid(payer.playerIndex, amount);
+            GameStatsManager.Instance.RecordRentReceived(owner.playerIndex, amount);
+        }
         Debug.Log($"[Property] P{payer.playerIndex} paid {amount} rent to P{owner.playerIndex}");
     }
 

@@ -18,6 +18,7 @@ public class GameNetworkManager : NetworkManager
 
     private readonly List<PlayerObject> _connectedPlayers = new List<PlayerObject>();
     private readonly List<PlayerObject> _botPlayers = new List<PlayerObject>();
+    private readonly System.Collections.Generic.HashSet<int> _rematchRequestedConnectionIds = new System.Collections.Generic.HashSet<int>();
     private readonly Dictionary<ulong, PersistedPlayerState> _disconnectedStates = new Dictionary<ulong, PersistedPlayerState>();
     private readonly HashSet<ulong> _allowedPlayerSteamIds = new HashSet<ulong>();
     private readonly HashSet<ulong> _voluntaryLeaveSteamIds = new HashSet<ulong>();
@@ -50,6 +51,8 @@ public class GameNetworkManager : NetworkManager
 
     [Tooltip("Lobide host'un sectigi oyun suresi (sn). Oyun sahnesi acilinca GameTurnManager'a uygulanir.")]
     private float _pendingGameDurationSeconds;
+
+    private bool _pendingTeamMode;
 
     #region Mirror Lifecycle
 
@@ -519,6 +522,7 @@ public class GameNetworkManager : NetworkManager
         }
 
         base.OnServerChangeScene(newSceneName);
+        _rematchRequestedConnectionIds.Clear();
         if (string.IsNullOrEmpty(newSceneName) || newSceneName != gameScene) return;
         _allowedPlayerSteamIds.Clear();
         foreach (var conn in NetworkServer.connections.Values)
@@ -537,11 +541,25 @@ public class GameNetworkManager : NetworkManager
         base.OnServerSceneChanged(sceneName);
         string gameScene = !string.IsNullOrEmpty(gameSceneName) ? gameSceneName : "GameScene";
 
-        if (!string.IsNullOrEmpty(sceneName) && sceneName == gameScene && _pendingGameDurationSeconds > 0 && GameTurnManager.Instance != null)
+        if (!string.IsNullOrEmpty(sceneName) && sceneName == gameScene && GameTurnManager.Instance != null)
         {
-            GameTurnManager.Instance.ServerSetGameDuration(_pendingGameDurationSeconds);
-            _pendingGameDurationSeconds = 0f;
-            Debug.Log("[Network] Lobide secilen oyun suresi oyun sahnesine uygulandi.");
+            if (_pendingGameDurationSeconds > 0)
+            {
+                GameTurnManager.Instance.ServerSetGameDuration(_pendingGameDurationSeconds);
+                _pendingGameDurationSeconds = 0f;
+                Debug.Log("[Network] Lobide secilen oyun suresi oyun sahnesine uygulandi.");
+            }
+            if (_pendingTeamMode)
+            {
+                GameTurnManager.Instance.ServerSetTeamMode(true);
+                foreach (var kv in NetworkServer.spawned)
+                {
+                    var p = kv.Value != null ? kv.Value.GetComponent<PlayerObject>() : null;
+                    if (p != null)
+                        p.teamIndex = p.playerIndex / 2;
+                }
+                Debug.Log("[Network] 2v2 takim modu acildi.");
+            }
         }
 
         if (string.IsNullOrEmpty(sceneName) || sceneName != gameScene || _pendingBotsForGameScene.Count == 0)
@@ -583,6 +601,12 @@ public class GameNetworkManager : NetworkManager
     public void ServerSetPendingGameDuration(float seconds)
     {
         _pendingGameDurationSeconds = seconds;
+    }
+
+    [Server]
+    public void ServerSetPendingTeamMode(bool teamMode)
+    {
+        _pendingTeamMode = teamMode;
     }
 
     #endregion
@@ -722,6 +746,27 @@ public class GameNetworkManager : NetworkManager
             _voluntaryLeaveSteamIds.Add(steamId);
             _disconnectedStates.Remove(steamId);
         }
+    }
+
+    [Server]
+    public void ServerRecordRematch(Mirror.NetworkConnectionToClient conn)
+    {
+        if (conn == null) return;
+        _rematchRequestedConnectionIds.Add(conn.connectionId);
+        var required = new System.Collections.Generic.HashSet<int>();
+        foreach (var p in _connectedPlayers)
+        {
+            if (p != null && !p.isBot && p.connectionToClient != null)
+                required.Add(p.connectionToClient.connectionId);
+        }
+        if (required.Count == 0) return;
+        foreach (int id in required)
+        {
+            if (!_rematchRequestedConnectionIds.Contains(id)) return;
+        }
+        string scene = !string.IsNullOrEmpty(gameSceneName) ? gameSceneName : "GameScene";
+        Debug.Log("[Network] Tüm oyuncular tekrar oyna istedi. Sahne yeniden yükleniyor: " + scene);
+        ServerChangeScene(scene);
     }
 
     #endregion
