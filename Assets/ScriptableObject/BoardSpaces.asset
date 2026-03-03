@@ -261,11 +261,11 @@ MonoBehaviour:
     taxAmount: 0
     startBonus: 0
     housePrice: 0
-  - displayName: "br\xFCksel"
+  - displayName: MAPUSHANE
     color: {r: 0, g: 0.7500738, b: 0.9528302, a: 1}
-    spaceType: 0
-    purchasePrice: 80
-    rent: 8
+    spaceType: 5
+    purchasePrice: 0
+    rent: 0
     taxAmount: 0
     startBonus: 0
     housePrice: 0

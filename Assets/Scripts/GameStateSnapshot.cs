@@ -33,6 +33,7 @@ public class GameStateSnapshot
         public int selectedDiceIndex;
         public int money;
         public bool hasPassedStart;
+        public bool isInJail;
     }
 
     [Serializable]
@@ -87,7 +88,8 @@ public class GameStateSnapshot
                 selectedCharacterIndex = po.selectedCharacterIndex,
                 selectedDiceIndex = po.selectedDiceIndex,
                 money = po.money,
-                hasPassedStart = po.hasPassedStart
+                hasPassedStart = po.hasPassedStart,
+                isInJail = po.isInJail
             });
         }
         snap.players.Sort((a, b) => a.playerIndex.CompareTo(b.playerIndex));

@@ -55,6 +55,8 @@ public class GameHudUI : MonoBehaviour
     private Button _rollButton;
     private Image _rollButtonImage;
     private Text _rollButtonText;
+    private Button _jailPayButton;
+    private Text _jailPayButtonText;
     private GameObject _buyPanel;
     private Text _buyPanelText;
     private Button _buyButton;
@@ -246,6 +248,30 @@ public class GameHudUI : MonoBehaviour
         txtRt.offsetMin = Vector2.zero;
         txtRt.offsetMax = Vector2.zero;
 
+        // Hapisten cikma butonu (fallback tasarim)
+        var jailBtnGo = new GameObject("JailPayButton");
+        jailBtnGo.transform.SetParent(canvasGo.transform, false);
+        var jailRt = jailBtnGo.AddComponent<RectTransform>();
+        jailRt.anchorMin = buttonRt.anchorMin;
+        jailRt.anchorMax = buttonRt.anchorMax;
+        jailRt.pivot = buttonRt.pivot;
+        var basePos = C != null ? C.rollButtonPosition : new Vector2(-16, 16);
+        jailRt.anchoredPosition = basePos + new Vector2(-210, 0);
+        jailRt.sizeDelta = new Vector2(200, 40);
+        var jailImg = jailBtnGo.AddComponent<Image>();
+        jailImg.color = new Color(0.4f, 0.3f, 0.1f, 0.9f);
+        _jailPayButton = jailBtnGo.AddComponent<Button>();
+        _jailPayButton.targetGraphic = jailImg;
+        _jailPayButton.onClick.AddListener(OnJailPayClicked);
+        var jailTxt = CreateText(jailBtnGo.transform, "Text", Vector2.zero, "Hapisten Çık");
+        _jailPayButtonText = jailTxt;
+        jailTxt.alignment = TextAnchor.MiddleCenter;
+        jailTxt.rectTransform.anchorMin = Vector2.zero;
+        jailTxt.rectTransform.anchorMax = Vector2.one;
+        jailTxt.rectTransform.offsetMin = Vector2.zero;
+        jailTxt.rectTransform.offsetMax = Vector2.zero;
+        _jailPayButton.gameObject.SetActive(false);
+
         var settingsBtn = new GameObject("SettingsButton");
         settingsBtn.transform.SetParent(canvasGo.transform, false);
         var setRt = settingsBtn.AddComponent<RectTransform>();
@@ -346,25 +372,77 @@ public class GameHudUI : MonoBehaviour
         _rollButton = overrideRollButton != null ? overrideRollButton : FindRecursive(root, "RollButton")?.GetComponent<Button>();
         if (_rollButton != null) { _rollButton.onClick.AddListener(OnRollClicked); _rollButtonImage = _rollButton.GetComponent<Image>(); _rollButtonText = _rollButton.GetComponentInChildren<Text>(); }
 
+        var jailPayBtn = FindRecursive(root, "JailPayButton")?.GetComponent<Button>();
+        if (jailPayBtn != null)
+        {
+            _jailPayButton = jailPayBtn;
+            _jailPayButton.onClick.AddListener(OnJailPayClicked);
+            _jailPayButtonText = _jailPayButton.GetComponentInChildren<Text>();
+            _jailPayButton.gameObject.SetActive(false);
+        }
+
         var setBtn = overrideSettingsButton != null ? overrideSettingsButton : FindRecursive(root, "SettingsButton")?.GetComponent<Button>();
         if (setBtn != null) setBtn.onClick.AddListener(OnSettingsClicked);
 
         _buyPanel = overrideBuyPanel != null ? overrideBuyPanel : FindRecursive(root, "BuyPanel")?.gameObject;
         if (_buyPanel != null) {
-            _declineButton = _buyPanel.GetComponentInChildren<Button>();
-            if (_declineButton != null) _declineButton.onClick.AddListener(OnDeclineClicked);
+            // Panel genel metni (ilk Text)
             _buyPanelText = _buyPanel.GetComponentInChildren<Text>();
-            var buyPanelBtns = _buyPanel.GetComponentsInChildren<Button>();
-            _buyButton = buyPanelBtns.Length > 1 ? buyPanelBtns[1] : null;
-            if (_buyButton != null) { _buyButton.onClick.AddListener(OnBuyClicked); _buyButtonText = _buyButton.GetComponentInChildren<Text>(); }
+
+            // --- Basit satın alma içeriği (BuyContent) ---
             _buyPanelContent = FindRecursive(_buyPanel.transform, "BuyContent")?.gameObject;
+            if (_buyPanelContent != null)
+            {
+                var buyBtnTr = FindRecursive(_buyPanelContent.transform, "BuyButton");
+                var declineBtnTr = FindRecursive(_buyPanelContent.transform, "DeclineButton");
+
+                _buyButton = buyBtnTr != null ? buyBtnTr.GetComponent<Button>() : null;
+                _declineButton = declineBtnTr != null ? declineBtnTr.GetComponent<Button>() : null;
+
+                // Geriye dönük uyumluluk: isim bulunamazsa eski davranışa dön
+                if (_declineButton == null)
+                    _declineButton = _buyPanelContent.GetComponentInChildren<Button>();
+
+                if (_declineButton != null)
+                    _declineButton.onClick.AddListener(OnDeclineClicked);
+
+                if (_buyButton == null)
+                {
+                    var buyPanelBtns = _buyPanelContent.GetComponentsInChildren<Button>();
+                    _buyButton = buyPanelBtns.Length > 1 ? buyPanelBtns[1] : null;
+                }
+
+                if (_buyButton != null)
+                {
+                    _buyButton.onClick.AddListener(OnBuyClicked);
+                    _buyButtonText = _buyButton.GetComponentInChildren<Text>();
+                }
+            }
+
+            // --- Ev dikme içeriği (BuildContent) ---
             _buildPanelContent = FindRecursive(_buyPanel.transform, "BuildContent")?.gameObject;
             _rentOrBuyPanelContent = FindRecursive(_buyPanel.transform, "RentOrBuyContent")?.gameObject;
+
+            // --- Kira / Sahibinden satın alma içeriği (RentOrBuyContent) ---
             _rentOrBuyInfoText = _rentOrBuyPanelContent != null ? _rentOrBuyPanelContent.GetComponentInChildren<Text>() : null;
             if (_rentOrBuyPanelContent != null) {
-                var rentBtns = _rentOrBuyPanelContent.GetComponentsInChildren<Button>();
-                _payRentButton = rentBtns.Length > 0 ? rentBtns[0] : null;
-                _buyFromOwnerButton = rentBtns.Length > 1 ? rentBtns[1] : null;
+                // Önce isimle eşle: DeclineButton / BuyButton veya eski isimler
+                var declineRentTr = FindRecursive(_rentOrBuyPanelContent.transform, "DeclineButton")
+                                    ?? FindRecursive(_rentOrBuyPanelContent.transform, "SkipBuyButton");
+                var buyOwnerTr = FindRecursive(_rentOrBuyPanelContent.transform, "BuyButton")
+                                 ?? FindRecursive(_rentOrBuyPanelContent.transform, "BuyFromOwnerButton");
+
+                _payRentButton = declineRentTr != null ? declineRentTr.GetComponent<Button>() : null;
+                _buyFromOwnerButton = buyOwnerTr != null ? buyOwnerTr.GetComponent<Button>() : null;
+
+                // Geriye dönük: isim bulunamazsa eski sıralı taramaya dön
+                if (_payRentButton == null || _buyFromOwnerButton == null)
+                {
+                    var rentBtns = _rentOrBuyPanelContent.GetComponentsInChildren<Button>();
+                    if (_payRentButton == null) _payRentButton = rentBtns.Length > 0 ? rentBtns[0] : null;
+                    if (_buyFromOwnerButton == null) _buyFromOwnerButton = rentBtns.Length > 1 ? rentBtns[1] : null;
+                }
+
                 if (_payRentButton != null) _payRentButton.onClick.AddListener(OnSkipBuyFromOwnerClicked);
                 if (_buyFromOwnerButton != null) _buyFromOwnerButton.onClick.AddListener(OnBuyFromOwnerClicked);
             }
@@ -1332,6 +1410,13 @@ public class GameHudUI : MonoBehaviour
         _localPlayer.CmdRequestRoll();
     }
 
+    private void OnJailPayClicked()
+    {
+        if (_localPlayer == null) return;
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
+        _localPlayer.CmdPayToLeaveJail();
+    }
+
     private void OnDeclineClicked()
     {
         if (_localPlayer == null || PropertyManager.Instance == null) return;
@@ -1437,7 +1522,11 @@ public class GameHudUI : MonoBehaviour
             return;
         }
 
-        if (_youText != null) _youText.text = $"You: P{_localPlayer.playerIndex} | Space: {_localPlayer.currentSpaceIndex}";
+        if (_youText != null)
+        {
+            string jailSuffix = _localPlayer.isInJail ? " | HAPİS" : "";
+            _youText.text = $"You: P{_localPlayer.playerIndex} | Space: {_localPlayer.currentSpaceIndex}{jailSuffix}";
+        }
         if (_moneyText != null) _moneyText.text = $"Para: {_localPlayer.money}";
 
         bool hasPending = PropertyManager.Instance != null &&
@@ -1486,9 +1575,29 @@ public class GameHudUI : MonoBehaviour
             _rollButton.interactable = true;
         }
 
+        if (_jailPayButton != null)
+        {
+            bool canShowJailPay = yourTurn && _localPlayer.isInJail && GameTurnManager.Instance != null;
+            int fee = GameTurnManager.Instance != null ? GameTurnManager.Instance.JailReleaseFee : 0;
+            bool canPay = canShowJailPay && fee > 0 && _localPlayer.money >= fee;
+            _jailPayButton.gameObject.SetActive(canShowJailPay && fee > 0);
+            _jailPayButton.interactable = canPay;
+            if (_jailPayButtonText != null)
+                _jailPayButtonText.text = fee > 0 ? $"Hapisten Çık (-{fee} TL)" : "Hapisten Çık";
+        }
+
         if (turn.isRolling)
         {
             if (_statusText != null) _statusText.text = "Durum: Zar donuyor...";
+        }
+        else if (yourTurn && _localPlayer.isInJail)
+        {
+            int fee = GameTurnManager.Instance != null ? GameTurnManager.Instance.JailReleaseFee : 0;
+            string extra = fee > 0 ? $" | {fee} TL ödeyerek hemen çıkabilirsin." : "";
+            if (_statusText != null) _statusText.text = "Durum: HAPİSTESİN - Çift zar at" + extra;
+            if (_rollButtonText != null) _rollButtonText.text = "ZAR AT (HAPİS)";
+            if (_rollButtonImage != null)
+                _rollButtonImage.color = _buttonIdle;
         }
         else if (yourTurn)
         {
@@ -1629,7 +1738,7 @@ public class GameHudUI : MonoBehaviour
             else if (_playerCornerHuds[slot].moneyTextTMP != null) _playerCornerHuds[slot].moneyTextTMP.text = moneyStr;
             if (_playerCornerHuds[slot].avatar != null)
             {
-                AvatarCircleMask.ApplyTo(_playerCornerHuds[slot].avatar);
+                // Avatarlar kare (GameScene'de yuvarlak maske uygulanmaz)
                 if (p.avatarTexture != null)
                 {
                     _playerCornerHuds[slot].avatar.texture = p.avatarTexture;

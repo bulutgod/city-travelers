@@ -40,6 +40,14 @@ public class GameTurnManager : NetworkBehaviour
     [Header("Tahta Ayarlari")]
     [SerializeField] private int boardSpaceCount = 38;
 
+    [Header("Hapishane Kurallari")]
+    [Tooltip("Hapisten istege bagli cikis ucreti. 0 = ucretsiz.")]
+    [SerializeField] private int jailReleaseFee = 50;
+    [Tooltip("Hapiste en fazla kac tur kalinir (zar atma denemesi sayisi).")]
+    [SerializeField] private int maxJailTurns = 3;
+    [Tooltip("Ust uste kac cift zar atilirsa hapishaneye gider. 2 = test icin kolay, 3 = klasik monopoli.")]
+    [SerializeField] private int doublesCountForJail = 3;
+
     [SyncVar] public int currentTurnPlayerIndex = -1;
     [SyncVar] public int turnNumber = 1;
     [SyncVar] public int lastRollValue = 0;
@@ -48,6 +56,16 @@ public class GameTurnManager : NetworkBehaviour
     [SyncVar] public int lastRollPlayerIndex = -1;
     [SyncVar] public bool isRolling = false;
     [SyncVar] public int rollingPlayerIndex = -1;
+
+    /// <summary> Son atılan zar çift (doubles) ise tur geçilmez, aynı oyuncu tekrar atar. </summary>
+    private bool _lastRollWasDoubles;
+    /// <summary> Aynı turda üst üste kaç kez çift zar atıldı. 3 olunca hapishaneye gider. </summary>
+    private int _consecutiveDoublesCount;
+    /// <summary> Her oyuncu icin hapiste kac tur gecirdigini takip eder. </summary>
+    private readonly System.Collections.Generic.Dictionary<int, int> _jailTurns =
+        new System.Collections.Generic.Dictionary<int, int>();
+
+    public int JailReleaseFee => jailReleaseFee;
 
     /// <summary> Oyun bittiğinde kazanan oyuncu indexi (-1 = devam ediyor). Bot da sayılır. </summary>
     [SyncVar] public int winnerPlayerIndex = -1;
@@ -167,9 +185,17 @@ public class GameTurnManager : NetworkBehaviour
         lastRollPlayerIndex = -1;
         isRolling = false;
         rollingPlayerIndex = -1;
+        _consecutiveDoublesCount = 0;
+        _jailTurns.Clear();
 
         foreach (var p in players)
-            if (p != null) p.currentSpaceIndex = 0;
+        {
+            if (p != null)
+            {
+                p.currentSpaceIndex = 0;
+                p.isInJail = false;
+            }
+        }
 
         int firstIndex = Random.Range(0, players.Count);
         currentTurnPlayerIndex = players[firstIndex].playerIndex;
@@ -207,11 +233,155 @@ public class GameTurnManager : NetworkBehaviour
             return false;
         }
 
+        if (requester.isInJail)
+        {
+            // Bot ise ve para yetiyorsa otomatik ucret odemeyi tercih et
+            if (requester.isBot && jailReleaseFee > 0 && requester.money >= jailReleaseFee)
+            {
+                ServerPayToLeaveJail(requester);
+                return true;
+            }
+
+            StartCoroutine(ServerJailRoll(requester));
+            return true;
+        }
+
         int dice1 = Random.Range(1, 7);
         int dice2 = Random.Range(1, 7);
         int roll = dice1 + dice2;
+        _lastRollWasDoubles = (dice1 == dice2);
+        if (_lastRollWasDoubles)
+            _consecutiveDoublesCount++;
+        else
+            _consecutiveDoublesCount = 0;
+
+        if (_consecutiveDoublesCount >= doublesCountForJail)
+        {
+            _consecutiveDoublesCount = 0;
+            StartCoroutine(ServerShowDoublesThenSendToJail(requester, dice1, dice2));
+            return true;
+        }
+
         StartCoroutine(ServerRollAndMove(requester, roll, dice1, dice2));
         return true;
+    }
+
+    /// <summary>Ust uste N. cift zari goster, sonra hapishaneye gonder. Boylece 2. zar atisi ekranda gorunur.</summary>
+    [Server]
+    private IEnumerator ServerShowDoublesThenSendToJail(PlayerObject requester, int dice1, int dice2)
+    {
+        isRolling = true;
+        rollingPlayerIndex = requester != null ? requester.playerIndex : -1;
+        lastRollValue = dice1 + dice2;
+        lastRollDice1 = dice1;
+        lastRollDice2 = dice2;
+        lastRollPlayerIndex = requester != null ? requester.playerIndex : -1;
+
+        RpcPlayDiceRoll();
+        RpcPlayDiceLand(dice1, dice2);
+        yield return new WaitForSeconds(Mathf.Max(0f, delayBeforeMoveAfterRoll));
+
+        isRolling = false;
+        rollingPlayerIndex = -1;
+
+        SendToJail(requester);
+    }
+
+    [Server]
+    private int GetJailSpaceIndex()
+    {
+        if (BoardManager.Instance == null) return -1;
+        int n = boardSpaceCount > 0 ? boardSpaceCount : BoardManager.SpaceCount;
+        for (int i = 0; i < n; i++)
+        {
+            var info = BoardManager.Instance.GetSpaceInfo(i);
+            if (info != null && info.spaceType == SpaceInfo.SpaceType.Jail)
+                return i;
+        }
+        return -1;
+    }
+
+    [Server]
+    private void SendToJail(PlayerObject requester)
+    {
+        int jailIndex = GetJailSpaceIndex();
+        if (jailIndex < 0)
+        {
+            Debug.LogWarning("[Turn] Tahtada Jail tipinde kare yok; hapishane kuralı atlandi.");
+            AdvanceTurn();
+            return;
+        }
+        if (requester != null)
+        {
+            requester.currentSpaceIndex = jailIndex;
+            requester.isInJail = true;
+            _jailTurns[requester.playerIndex] = 0;
+        }
+        string jailMsg = requester != null
+            ? $"{requester.steamName} üst üste {doublesCountForJail}. çift zarı attı - hapishaneye gitti!"
+            : $"Üst üste {doublesCountForJail} çift zar - hapishaneye!";
+        RpcShowNotification(jailMsg);
+        AdvanceTurn();
+    }
+
+    [Server]
+    private IEnumerator ServerJailRoll(PlayerObject requester)
+    {
+        isRolling = true;
+        rollingPlayerIndex = requester.playerIndex;
+        int turns = 0;
+        if (requester != null && _jailTurns.TryGetValue(requester.playerIndex, out var t))
+            turns = t;
+        turns++;
+        if (requester != null)
+            _jailTurns[requester.playerIndex] = turns;
+        bool forceExit = turns >= maxJailTurns;
+
+        int dice1 = Random.Range(1, 7);
+        int dice2 = Random.Range(1, 7);
+        int roll = dice1 + dice2;
+        lastRollValue = roll;
+        lastRollDice1 = dice1;
+        lastRollDice2 = dice2;
+        lastRollPlayerIndex = requester.playerIndex;
+        _lastRollWasDoubles = false;
+
+        RpcPlayDiceRoll();
+        RpcPlayDiceLand(dice1, dice2);
+        yield return new WaitForSeconds(Mathf.Max(0f, delayBeforeMoveAfterRoll));
+
+        isRolling = false;
+        rollingPlayerIndex = -1;
+
+        if (dice1 == dice2)
+        {
+            if (requester != null)
+            {
+                requester.isInJail = false;
+                _jailTurns.Remove(requester.playerIndex);
+            }
+            RpcShowNotification(requester != null ? $"{requester.steamName} çift zar attı, hapishaneden çıktı!" : "Çift zar - hapishaneden çıkıldı!");
+            StartCoroutine(ServerRollAndMove(requester, roll, dice1, dice2));
+        }
+        else if (forceExit)
+        {
+            if (requester != null)
+            {
+                requester.isInJail = false;
+                _jailTurns.Remove(requester.playerIndex);
+            }
+            RpcShowNotification(requester != null
+                ? $"{requester.steamName} {maxJailTurns}. turunda hapisten çıktı."
+                : "Hapisten çıkış süresi doldu.");
+            StartCoroutine(ServerRollAndMove(requester, roll, dice1, dice2));
+        }
+        else
+        {
+            RpcShowNotification(requester != null
+                ? $"{requester.steamName} çift zar atamadı - hapiste kalıyor. ({turns}/{maxJailTurns})"
+                : "Çift zar atılamadı.");
+            AdvanceTurn();
+        }
     }
 
     [Server]
@@ -295,6 +465,9 @@ public class GameTurnManager : NetworkBehaviour
             case SpaceInfo.SpaceType.Jail:
                 RpcShowNotification($"{requester.steamName} hapishanede ziyaret");
                 break;
+            case SpaceInfo.SpaceType.GoToJail:
+                SendToJail(requester);
+                yield break;
             case SpaceInfo.SpaceType.FreeParking:
                 RpcShowNotification($"{requester.steamName} park yeri");
                 break;
@@ -330,7 +503,26 @@ public class GameTurnManager : NetworkBehaviour
                         }
                         else
                         {
-                            AdvanceTurn();
+                            if (_lastRollWasDoubles)
+                            {
+                                _lastRollWasDoubles = false;
+                                if (_consecutiveDoublesCount >= doublesCountForJail)
+                                {
+                                    _consecutiveDoublesCount = 0;
+                                    SendToJail(requester);
+                                }
+                                else
+                                {
+                                    RpcShowNotification("Çift zar! Tekrar at.");
+                                    if (requester != null && requester.isBot)
+                                    {
+                                        RpcShowNotification($"{requester.steamName} tekrar zar atıyor (çift zar).");
+                                        StartCoroutine(BotTurnAfterDelay(requester, 2.5f));
+                                    }
+                                }
+                            }
+                            else
+                                AdvanceTurn();
                         }
                         yield break;
                     }
@@ -365,13 +557,57 @@ public class GameTurnManager : NetworkBehaviour
                 break;
         }
 
-        AdvanceTurn();
+        if (_lastRollWasDoubles)
+        {
+            _lastRollWasDoubles = false;
+            if (_consecutiveDoublesCount >= doublesCountForJail)
+            {
+                _consecutiveDoublesCount = 0;
+                SendToJail(requester);
+            }
+            else
+            {
+                RpcShowNotification("Çift zar! Tekrar at.");
+                if (requester != null && requester.isBot)
+                {
+                    RpcShowNotification($"{requester.steamName} tekrar zar atıyor (çift zar).");
+                    StartCoroutine(BotTurnAfterDelay(requester, 2.5f));
+                }
+            }
+        }
+        else
+        {
+            AdvanceTurn();
+        }
     }
 
     [Server]
     public void ServerAdvanceTurnAfterPropertyAction(PlayerObject player)
     {
-        AdvanceTurn();
+        if (_lastRollWasDoubles)
+        {
+            _lastRollWasDoubles = false;
+            if (_consecutiveDoublesCount >= doublesCountForJail)
+            {
+                _consecutiveDoublesCount = 0;
+                var p = GetPlayerByIndex(currentTurnPlayerIndex);
+                SendToJail(p);
+            }
+            else
+            {
+                RpcShowNotification("Çift zar! Tekrar at.");
+                var p = GetPlayerByIndex(currentTurnPlayerIndex);
+                if (p != null && p.isBot)
+                {
+                    RpcShowNotification($"{p.steamName} tekrar zar atıyor (çift zar).");
+                    StartCoroutine(BotTurnAfterDelay(p, 2.5f));
+                }
+            }
+        }
+        else
+        {
+            AdvanceTurn();
+        }
     }
 
     [Server]
@@ -415,6 +651,38 @@ public class GameTurnManager : NetworkBehaviour
     {
         if (messageIndex < 0 || messageIndex >= QuickChatMessages.Length) return;
         RpcShowQuickChat(playerName, messageIndex);
+    }
+
+    [Server]
+    public void ServerPayToLeaveJail(PlayerObject requester)
+    {
+        if (requester == null) return;
+        if (!requester.isInJail) return;
+        int fee = Mathf.Max(0, jailReleaseFee);
+        if (fee > 0 && requester.money < fee) return;
+
+        if (fee > 0)
+            requester.money -= fee;
+
+        requester.isInJail = false;
+        _jailTurns.Remove(requester.playerIndex);
+
+        string name = string.IsNullOrWhiteSpace(requester.steamName) ? $"Oyuncu {requester.playerIndex}" : requester.steamName;
+        if (fee > 0)
+            RpcShowNotification($"{name} hapisten çıkmak için {fee} TL ödedi. Zar atıyor...");
+        else
+            RpcShowNotification($"{name} hapisten çıktı. Zar atıyor...");
+
+        // Bildirimin gorunmesi icin kisa bekleyip sonra zar at.
+        StartCoroutine(PayToLeaveJailThenRoll(requester, 1.5f));
+    }
+
+    [Server]
+    private IEnumerator PayToLeaveJailThenRoll(PlayerObject requester, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (requester != null && !isRolling)
+            ServerTryRoll(requester);
     }
 
     [ClientRpc]
@@ -538,6 +806,7 @@ public class GameTurnManager : NetworkBehaviour
     {
         if (player == null) return;
         if (bankruptPlayerIndices.Contains(player.playerIndex)) return;
+        _jailTurns.Remove(player.playerIndex);
         bankruptPlayerIndices.Add(player.playerIndex);
         RpcPlayBankrupt();
         RpcShowNotification($"{player.steamName} iflas etti!");
@@ -586,6 +855,8 @@ public class GameTurnManager : NetworkBehaviour
 
         CheckGameTimeUp();
         if (winnerPlayerIndex >= 0) return;
+
+        _consecutiveDoublesCount = 0;
 
         int nextPos = (currentPos + 1) % players.Count;
         currentTurnPlayerIndex = players[nextPos].playerIndex;

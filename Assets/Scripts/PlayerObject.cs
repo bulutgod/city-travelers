@@ -35,6 +35,11 @@ public class PlayerObject : NetworkBehaviour
     /// </summary>
     [SyncVar] public bool hasPassedStart = false;
 
+    /// <summary>
+    /// Üç çift zar veya "Hapishaneye Git" karesine basınca true. Çift zar atınca veya ödeyince çıkılır.
+    /// </summary>
+    [SyncVar] public bool isInJail = false;
+
     [SyncVar] public bool isReady = false;
 
     private void OnCharacterIndexChanged(int oldVal, int newVal)
@@ -74,6 +79,13 @@ public class PlayerObject : NetworkBehaviour
     {
         if (GameTurnManager.Instance == null) return;
         GameTurnManager.Instance.ServerTryRoll(this);
+    }
+
+    [Command]
+    public void CmdPayToLeaveJail()
+    {
+        if (GameTurnManager.Instance == null) return;
+        GameTurnManager.Instance.ServerPayToLeaveJail(this);
     }
 
     [Command]

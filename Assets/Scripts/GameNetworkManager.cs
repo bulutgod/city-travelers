@@ -35,6 +35,7 @@ public class GameNetworkManager : NetworkManager
         public float disconnectedAt;
         public string steamName;
         public bool hasPassedStart;
+        public bool isInJail;
     }
 
     private struct PendingBotSpawn
@@ -292,6 +293,7 @@ public class GameNetworkManager : NetworkManager
                     player.selectedDiceIndex = bot.selectedDiceIndex;
                     player.money = bot.money;
                     player.hasPassedStart = bot.hasPassedStart;
+                    player.isInJail = bot.isInJail;
                     Debug.Log($"[Network] Reconnect restore BOT state -> Space:{bot.currentSpaceIndex} Money:{bot.money}");
                 }
                 else
@@ -301,6 +303,7 @@ public class GameNetworkManager : NetworkManager
                     player.selectedDiceIndex = restored.selectedDiceIndex;
                     player.money = restored.money;
                     player.hasPassedStart = restored.hasPassedStart;
+                    player.isInJail = restored.isInJail;
                 }
                 if (!string.IsNullOrWhiteSpace(restored.steamName))
                     player.steamName = restored.steamName;
@@ -329,6 +332,7 @@ public class GameNetworkManager : NetworkManager
                     player.selectedDiceIndex = entry.selectedDiceIndex;
                     player.money = entry.money;
                     player.hasPassedStart = entry.hasPassedStart;
+                    player.isInJail = entry.isInJail;
                     if (!string.IsNullOrWhiteSpace(entry.steamName)) player.steamName = entry.steamName;
                     if (entry.steamId != 0) player.steamId = entry.steamId;
                     Debug.Log($"[Network] Migration restore host player -> Index:{player.playerIndex}");
@@ -379,7 +383,8 @@ public class GameNetworkManager : NetworkManager
                             money = player.money,
                             disconnectedAt = Time.unscaledTime,
                             steamName = player.steamName,
-                            hasPassedStart = player.hasPassedStart
+                            hasPassedStart = player.hasPassedStart,
+                            isInJail = player.isInJail
                         };
                         StartCoroutine(SpawnBotAfterDisconnect(steamId, player));
                     }
@@ -451,6 +456,7 @@ public class GameNetworkManager : NetworkManager
         bot.selectedCharacterIndex = idx % 5;
         bot.selectedDiceIndex = 0;
         bot.hasPassedStart = false;
+        bot.isInJail = false;
         bot.isReady = true;
 
         NetworkServer.Spawn(botGo);
@@ -478,6 +484,7 @@ public class GameNetworkManager : NetworkManager
         bot.selectedCharacterIndex = state.selectedCharacterIndex;
         bot.selectedDiceIndex = state.selectedDiceIndex;
         bot.hasPassedStart = state.hasPassedStart;
+        bot.isInJail = state.isInJail;
 
         NetworkServer.Spawn(botGo);
         _botPlayers.Add(bot);
@@ -556,6 +563,7 @@ public class GameNetworkManager : NetworkManager
             bot.selectedCharacterIndex = info.selectedCharacterIndex;
             bot.selectedDiceIndex = info.selectedDiceIndex;
             bot.hasPassedStart = false;
+            bot.isInJail = false;
             bot.isReady = true;
 
             NetworkServer.Spawn(botGo);
@@ -675,7 +683,8 @@ public class GameNetworkManager : NetworkManager
                 money = entry.money,
                 disconnectedAt = Time.unscaledTime,
                 steamName = entry.steamName ?? "",
-                hasPassedStart = entry.hasPassedStart
+                hasPassedStart = entry.hasPassedStart,
+                isInJail = entry.isInJail
             };
         }
     }
