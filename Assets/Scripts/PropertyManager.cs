@@ -78,13 +78,17 @@ public class PropertyManager : NetworkBehaviour
     }
 
     /// <summary>
-    /// Kira ödenmeli mi? (sahibi var, kendimiz değiliz)
+    /// Kira ödenmeli mi? (sahibi var, kendimiz değiliz). 2v2'de takım arkadaşının yerine kira ödenmez.
     /// </summary>
     public bool MustPayRent(int spaceIndex, int landingPlayerIndex)
     {
         int owner = GetOwner(spaceIndex);
         if (owner < 0) return false;
-        return owner != landingPlayerIndex;
+        if (owner == landingPlayerIndex) return false;
+        if (GameTurnManager.Instance != null && GameTurnManager.Instance.isTeamGame &&
+            GameTurnManager.Instance.AreSameTeam(owner, landingPlayerIndex))
+            return false;
+        return true;
     }
 
     /// <summary>
@@ -313,7 +317,9 @@ public class PropertyManager : NetworkBehaviour
             GameTurnManager.Instance?.ServerSendNotification(msg);
             AdvanceTurnAfterAction(player);
         }
-        else if (owner == player.playerIndex)
+        else if (owner == player.playerIndex ||
+                 (GameTurnManager.Instance != null && GameTurnManager.Instance.isTeamGame &&
+                  GameTurnManager.Instance.AreSameTeam(owner, player.playerIndex)))
         {
             int currentHouses = GetHouseCount(spaceIndex);
             int housePrice = info.housePrice > 0 ? info.housePrice : (info.purchasePrice / 2);

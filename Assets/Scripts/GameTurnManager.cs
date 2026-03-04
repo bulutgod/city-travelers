@@ -565,8 +565,11 @@ public class GameTurnManager : NetworkBehaviour
                             StartCoroutine(BotDecideBuyAfterDelay(requester, landedIndex, 1.5f));
                         yield break;
                     }
-                    // Kendi mülküne indin: sadece üzerinde bulunduğun mülkte ev dikme teklifi
-                    if (PropertyManager.Instance.GetOwner(landedIndex) == requester.playerIndex)
+                    // Kendi mülküne veya takım arkadaşının mülküne indin: ev dikme teklifi (2v2'de takım yeri senin yerin gibi)
+                    int ownerIdx = PropertyManager.Instance.GetOwner(landedIndex);
+                    bool isOwnOrTeammate = (ownerIdx == requester.playerIndex) ||
+                        (isTeamGame && ownerIdx >= 0 && AreSameTeam(ownerIdx, requester.playerIndex));
+                    if (isOwnOrTeammate)
                     {
                         int houses = PropertyManager.Instance.GetHouseCount(landedIndex);
                         if (houses < 5 && (houses == 4 || houses < 3 || requester.hasPassedStart))
@@ -646,6 +649,16 @@ public class GameTurnManager : NetworkBehaviour
     public PlayerObject GetPlayerByIndexPublic(int playerIndex)
     {
         return GetPlayerByIndex(playerIndex);
+    }
+
+    /// <summary> 2v2: Aynı takımda mı? </summary>
+    [Server]
+    public bool AreSameTeam(int playerIndexA, int playerIndexB)
+    {
+        if (!isTeamGame || playerIndexA < 0 || playerIndexB < 0) return false;
+        var a = GetPlayerByIndex(playerIndexA);
+        var b = GetPlayerByIndex(playerIndexB);
+        return a != null && b != null && a.teamIndex == b.teamIndex;
     }
 
     [Server]

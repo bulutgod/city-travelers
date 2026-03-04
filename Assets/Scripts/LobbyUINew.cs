@@ -88,6 +88,7 @@ public class LobbyUINew : MonoBehaviour
     private GameObject _durationRow;
     private Button _dur20Btn, _dur60Btn, _dur120Btn;
     private TextMeshProUGUI _durationLabel;
+    private bool _teamToggleBound;
 
     // -------------------------------------------------------
     // Unity Lifecycle
@@ -133,6 +134,8 @@ public class LobbyUINew : MonoBehaviour
         // Zar seçim callback
         if (dicePicker != null)
             dicePicker.OnDiceSelected += OnDiceSelected;
+
+        BindTeamModeToggle();
 
         ShowMainMenu();
         LoadSteamProfile();
@@ -428,6 +431,9 @@ public class LobbyUINew : MonoBehaviour
         // Oyuncu say�s�
         var players = GetCurrentPlayers();
 
+        // Toggle inspector'da atanmadıysa, lobi açılınca otomatik bağla
+        BindTeamModeToggle();
+
         if (playerCountText)
             playerCountText.text = $"{players.Count} / {maxPlayers} OYUNCU";
 
@@ -472,7 +478,7 @@ public class LobbyUINew : MonoBehaviour
                 txt.text = localPlayer != null && localPlayer.isReady ? "HAZIR DEĞİL" : "HAZIRIM";
         }
 
-        // Start butonu: en az 2 oyuncu ve hepsi hazır (sadece host)
+        // Start butonu: en az 2 oyuncu ve herkes (host dahil) "Hazırım" demiş olmalı
         bool isHost = NetworkServer.active;
         if (startGameButton != null && isHost)
         {
@@ -695,6 +701,37 @@ public class LobbyUINew : MonoBehaviour
         if (string.IsNullOrEmpty(gameScene)) gameScene = "GameScene";
         Debug.Log("[LobbyUI] Oyun baslatiliyor: " + gameScene + (wantTeamMode ? " (2v2 Takim modu)" : ""));
         NetworkManager.singleton.ServerChangeScene(gameScene);
+    }
+
+    private void BindTeamModeToggle()
+    {
+        if (_teamToggleBound) return;
+
+        if (teamModeToggle == null && lobbyPanel != null)
+        {
+            foreach (var t in lobbyPanel.GetComponentsInChildren<Toggle>(true))
+            {
+                if (t == null || t.gameObject == null) continue;
+                string n = t.gameObject.name.ToLowerInvariant();
+                if (n.Contains("2v2") || n.Contains("team") || n.Contains("takim"))
+                {
+                    teamModeToggle = t;
+                    break;
+                }
+            }
+        }
+
+        if (teamModeToggle == null) return;
+        _teamToggleBound = true;
+        teamModeToggle.onValueChanged.AddListener(OnTeamModeToggleChanged);
+        Debug.Log("[LobbyUI] 2v2 toggle baglandi: " + teamModeToggle.gameObject.name + " initial=" + teamModeToggle.isOn);
+    }
+
+    private void OnTeamModeToggleChanged(bool isOn)
+    {
+        Debug.Log("[LobbyUI] 2v2 toggle degisti: " + isOn + " (ServerActive=" + NetworkServer.active + ")");
+        if (NetworkServer.active && GameNetworkManager.Instance != null)
+            GameNetworkManager.Instance.ServerSetPendingTeamMode(isOn);
     }
 
     private bool GetTeamModeToggleIsOn()

@@ -350,6 +350,12 @@ public class GameNetworkManager : NetworkManager
                 player.playerIndex = GetNextPlayerIndex();
             }
 
+            if (isGameScene && _pendingTeamMode)
+            {
+                player.teamIndex = player.playerIndex / 2;
+                Debug.Log($"[Network] 2v2: P{player.playerIndex} -> Takim {player.teamIndex + 1}");
+            }
+
             _connectedPlayers.Add(player);
 
             Debug.Log($"[Network] Spawn edildi → " +
@@ -556,7 +562,10 @@ public class GameNetworkManager : NetworkManager
                 {
                     var p = kv.Value != null ? kv.Value.GetComponent<PlayerObject>() : null;
                     if (p != null)
+                    {
                         p.teamIndex = p.playerIndex / 2;
+                        Debug.Log($"[Network] 2v2 (spawned): P{p.playerIndex} -> Takim {p.teamIndex + 1}");
+                    }
                 }
                 Debug.Log("[Network] 2v2 takim modu acildi.");
             }
@@ -583,6 +592,8 @@ public class GameNetworkManager : NetworkManager
             bot.hasPassedStart = false;
             bot.isInJail = false;
             bot.isReady = true;
+            if (_pendingTeamMode)
+                bot.teamIndex = info.playerIndex / 2;
 
             NetworkServer.Spawn(botGo);
             _botPlayers.Add(bot);
