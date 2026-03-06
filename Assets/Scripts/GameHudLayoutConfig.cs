@@ -1,4 +1,5 @@
 using UnityEngine;
+using TMPro;
 
 /// <summary>
 /// GameScene HUD'unun tum UI oge konum, boyut ve font ayarlarini Inspector'dan kontrol etmeni saglar.
@@ -8,6 +9,20 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "GameHudLayout", menuName = "Brom City/Game HUD Layout Config")]
 public class GameHudLayoutConfig : ScriptableObject
 {
+    [Header("Font")]
+    [Tooltip("Legacy UI Text icin (Turn, Roll, Money vb.). Bos birakilirsa varsayilan Arial kullanilir. .ttf/.otf dosyasini Project'e surukleyip buraya ata.")]
+    public Font customFont;
+    [Tooltip("TextMeshPro icin Font Asset. Bos birakilirsa TMP varsayilani kullanilir. Font dosyasindan: Sag tik > Create > TextMeshPro > Font Asset.")]
+    public TMP_FontAsset customTmpFont;
+
+    [Header("Genel")]
+    [Tooltip("Tum font boyutlarina uygulanan carpan. 1 = varsayilan, 1.5 = %50 buyuk.")]
+    [Range(0.5f, 3f)]
+    public float globalFontScale = 1f;
+    [Tooltip("Genel UI olcek carpani (RectTransform sizeDelta vb.).")]
+    [Range(0.5f, 2f)]
+    public float globalScale = 1f;
+
     [Header("Sol Panel - Bilgi Metinleri (Turn, Roll, You, Status, Money)")]
     public Vector2 leftPanelAnchorMin = new Vector2(0, 1);
     public Vector2 leftPanelAnchorMax = new Vector2(0, 1);
@@ -31,6 +46,7 @@ public class GameHudLayoutConfig : ScriptableObject
     public Vector2 rollButtonPivot = new Vector2(1, 0);
     public Vector2 rollButtonPosition = new Vector2(-16, 16);
     public Vector2 rollButtonSize = new Vector2(180, 52);
+    public int rollButtonFontSize = 18;
 
     [Header("Oyunu Birak Butonu")]
     public Vector2 leaveButtonPosition = new Vector2(16, 16);
@@ -139,4 +155,10 @@ public class GameHudLayoutConfig : ScriptableObject
 
     [Header("Canvas Scaler (referans cozunurluk)")]
     public Vector2 referenceResolution = new Vector2(1920, 1080);
+
+    /// <summary>globalFontScale uygulanmis font boyutu.</summary>
+    public int ScaledFontSize(int baseSize) => Mathf.Max(8, Mathf.RoundToInt(baseSize * globalFontScale));
+    /// <summary>globalScale uygulanmis boyut.</summary>
+    public float ScaledSize(float baseSize) => baseSize * globalScale;
+    public Vector2 ScaledSize(Vector2 baseSize) => baseSize * globalScale;
 }

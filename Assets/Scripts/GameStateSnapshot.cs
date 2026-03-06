@@ -21,6 +21,8 @@ public class GameStateSnapshot
     public int rollingPlayerIndex;
     public int winnerPlayerIndex = -1;
     public string winnerName = "";
+    public int centralBankPool;
+    public int activeAgendaEffect;
 
     [Serializable]
     public class PlayerEntry
@@ -71,6 +73,8 @@ public class GameStateSnapshot
             snap.rollingPlayerIndex = GameTurnManager.Instance.rollingPlayerIndex;
             snap.winnerPlayerIndex = GameTurnManager.Instance.winnerPlayerIndex;
             snap.winnerName = GameTurnManager.Instance.winnerName ?? "";
+            snap.centralBankPool = GameTurnManager.Instance.centralBankPool;
+            snap.activeAgendaEffect = GameTurnManager.Instance.activeAgendaEffect;
         }
 
         snap.players.Clear();

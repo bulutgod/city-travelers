@@ -1,5 +1,9 @@
+using System.Collections;
 using UnityEngine;
 using TMPro;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 /// <summary>
 /// 38 karelik oyun tahtasi. Pozisyonlar boardRoot'un child'larindan alinir.
@@ -7,6 +11,7 @@ using TMPro;
 /// 3D model: 38 child (sadece kareler) veya 39 child (38 kare + 1 ortadaki board). centerChildIndex ile ortayi atla.
 /// reverseSpaceOrder: Model saat yonunde ise true yap (baslangic ters kalirsa).
 /// </summary>
+[ExecuteInEditMode]
 public class BoardManager : MonoBehaviour
 {
     public static BoardManager Instance { get; private set; }
@@ -36,6 +41,18 @@ public class BoardManager : MonoBehaviour
     [Tooltip("Opsiyonel. Atanirsa placeholder kareler bu renk/isim/tip ile cizilir. Create > RichContractor > Board Spaces Data ile olustur.")]
     [SerializeField] private BoardSpaceData boardSpaceData;
 
+    [Header("Tahta etiket fontu")]
+    [Tooltip("Tahta kare etiketleri icin Font Asset. Bos birakilirsa LiberationSans SDF denenir.\nYeni font: Project'te .ttf dosyasina TIKLA > Sag tik > Create > TextMeshPro > Font Asset (SDF).")]
+    [SerializeField] private TMP_FontAsset labelFontAsset;
+    [Tooltip("Font kalinligi: Normal = ince, Bold = kalin.")]
+    [SerializeField] private TMPro.FontStyles labelFontStyle = TMPro.FontStyles.Normal;
+    [Tooltip("Isim ve kira ayri TextMesh olarak olusturulur. Isim ustte, kira altta.")]
+    [SerializeField] private float labelNameRentSpacing = 0.08f;
+    [Tooltip("Etiketler her zaman kameraya baksin (billboard). Aciksa useModelSpaceRotation vb. yok sayilir.")]
+    [SerializeField] private bool labelBillboard = false;
+    [Tooltip("Billboard: Sadece Y ekseni etrafinda don (yatay, tahta duzleminde). Kapaliysa tam billboard (kameraya dogru egilir).")]
+    [SerializeField] private bool labelBillboardYOnly = true;
+
     [Header("Placeholder kare boyutu")]
     [Tooltip("Kare genisligi (kup scale). Kareler arasi mesafe = tileSize + tileGap.")]
     [SerializeField] private float tileSize = 1.8f;
@@ -58,7 +75,28 @@ public class BoardManager : MonoBehaviour
     [Header("Flip (ileride Uno Flip modu)")]
     [SerializeField] private bool flipped;
 
+    [Header("Kare basma animasyonu")]
+    [Tooltip("Oyuncu indiginde karenin asagi inme miktari (Y).")]
+    [SerializeField] private float spacePressDepth = 0.08f;
+    [Tooltip("Asagi inme suresi (saniye).")]
+    [SerializeField] private float spacePressDownDuration = 0.08f;
+    [Tooltip("Yukari cikma suresi (saniye).")]
+    [SerializeField] private float spacePressUpDuration = 0.12f;
+
+    private TMP_FontAsset _cachedLabelFont;
+
+    private TMP_FontAsset GetLabelFontAsset()
+    {
+        if (labelFontAsset != null) return labelFontAsset;
+        if (_cachedLabelFont != null) return _cachedLabelFont;
+        _cachedLabelFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+        if (_cachedLabelFont != null) return _cachedLabelFont;
+        return TMP_Settings.defaultFontAsset;
+    }
+
     private Transform[] _spaces;
+    private Transform[] _labelTransforms;
+    private TMPro.TextMeshPro[] _nameLabels;
     private TMPro.TextMeshPro[] _rentLabels;
     private Material _runtimePlaceholderMaterial;
 
@@ -109,6 +147,44 @@ public class BoardManager : MonoBehaviour
         if (_spaces != null && i >= 0 && i < _spaces.Length)
             return _spaces[i];
         return null;
+    }
+
+    /// <summary>
+    /// Oyuncu indiginde karenin asagi inip yukari cikma animasyonu.
+    /// </summary>
+    public void PlaySpaceLandingAnimation(int spaceIndex)
+    {
+        if (_spaces == null) return;
+        int i = GetEffectiveIndex(spaceIndex);
+        if (i < 0 || i >= _spaces.Length || _spaces[i] == null) return;
+        StartCoroutine(AnimateSpacePress(i));
+    }
+
+    private IEnumerator AnimateSpacePress(int spaceIndex)
+    {
+        var space = _spaces[spaceIndex];
+        if (space == null) yield break;
+
+        Vector3 basePos = space.localPosition;
+        Vector3 downPos = basePos + Vector3.down * spacePressDepth;
+
+        float t = 0f;
+        while (t < 1f)
+        {
+            t += Time.deltaTime / Mathf.Max(0.001f, spacePressDownDuration);
+            space.localPosition = Vector3.Lerp(basePos, downPos, Mathf.Clamp01(t));
+            yield return null;
+        }
+
+        t = 0f;
+        while (t < 1f)
+        {
+            t += Time.deltaTime / Mathf.Max(0.001f, spacePressUpDuration);
+            space.localPosition = Vector3.Lerp(downPos, basePos, Mathf.Clamp01(t));
+            yield return null;
+        }
+
+        space.localPosition = basePos;
     }
 
     /// <summary>
@@ -263,6 +339,38 @@ public class BoardManager : MonoBehaviour
         return labelRotBottom;
     }
 
+    /// <summary>Mevcut etiketler varsa sadece metni gunceller, pozisyon/font/scale dokunmaz. Manuel ayarlar korunur.</summary>
+    private bool TrySoftRefreshLabels()
+    {
+        var root = transform.Find("Board_Labels");
+        if (root == null || root.childCount < SpaceCount) return false;
+        _nameLabels = new TMPro.TextMeshPro[SpaceCount];
+        _rentLabels = new TMPro.TextMeshPro[SpaceCount];
+        _labelTransforms = new Transform[SpaceCount];
+        for (int i = 0; i < SpaceCount; i++)
+        {
+            var labelT = root.Find($"Label_{i}");
+            if (labelT == null) return false;
+            var nameT = labelT.Find("Name");
+            var rentT = labelT.Find("Rent");
+            if (nameT == null) return false;
+            var nameTmp = nameT.GetComponent<TextMeshPro>();
+            var rentTmp = rentT != null ? rentT.GetComponent<TextMeshPro>() : null;
+            if (nameTmp == null) return false;
+            var info = boardSpaceData != null ? boardSpaceData.GetSpace(i) : null;
+            // Isim metnine dokunma - kullanicinin enter/satir sonu ayarlari korunsun
+            if (rentTmp != null && info != null && info.IsPurchasable)
+            {
+                int rent = PropertyManager.Instance != null ? PropertyManager.Instance.GetRentWithHouses(i, info.rent) : info.rent;
+                rentTmp.text = $"{rent} TL";
+                _rentLabels[i] = rentTmp;
+            }
+            _nameLabels[i] = nameTmp;
+            _labelTransforms[i] = labelT;
+        }
+        return true;
+    }
+
     private Bounds GetSpaceBounds(Transform space)
     {
         var r = space.GetComponentInChildren<Renderer>();
@@ -275,61 +383,73 @@ public class BoardManager : MonoBehaviour
         return new Bounds(space.position, Vector3.one * 1.5f);
     }
 
-    private void CreateLabelsForModelSpaces()
+    private void CreateLabelsForModelSpaces(bool forceRebuild = false)
     {
         if (_spaces == null) return;
+        if (!forceRebuild && TrySoftRefreshLabels()) return;
+        var existing = transform.Find("Board_Labels");
+        if (existing != null) DestroyImmediate(existing);
+        _nameLabels = new TMPro.TextMeshPro[SpaceCount];
         _rentLabels = new TMPro.TextMeshPro[SpaceCount];
+        _labelTransforms = new Transform[SpaceCount];
         var labelsRoot = new GameObject("Board_Labels");
         labelsRoot.transform.SetParent(transform);
         labelsRoot.transform.localPosition = Vector3.zero;
         labelsRoot.transform.localRotation = Quaternion.identity;
         labelsRoot.transform.localScale = Vector3.one;
+        int fontSize = Mathf.Max(24, labelFontSize);
+        float ex = 1.5f, ez = 1.5f, s = Mathf.Max(0.01f, labelScale);
+        float w = Mathf.Max(ex, ez) / s;
+        float h = Mathf.Min(ex, ez) / s * 0.5f;
+        Vector2 sizeDelta = new Vector2(Mathf.Max(w, 50f), Mathf.Max(h, 20f));
+
         for (int i = 0; i < _spaces.Length; i++)
         {
             var space = _spaces[i];
             if (space == null) continue;
             var info = boardSpaceData != null ? boardSpaceData.GetSpace(i) : null;
-            string label = info != null && !string.IsNullOrWhiteSpace(info.displayName) ? info.displayName : $"Space_{i}";
-            if (info != null && info.IsPurchasable && info.rent > 0)
-                label += $"\n{info.rent} TL";
-            var labelGo = new GameObject($"Label_{i}");
-            labelGo.transform.SetParent(labelsRoot.transform);
+            string name = info != null && !string.IsNullOrWhiteSpace(info.displayName) ? info.displayName : $"Space_{i}";
+            bool isPurchasable = info != null && info.IsPurchasable && info.rent > 0;
+
             var bounds = GetSpaceBounds(space);
-            // Push label slightly toward outer edge like classic Monopoly boards.
             Vector3 dir = (space.position - transform.position);
             dir.y = 0f;
             if (dir.sqrMagnitude < 0.0001f) dir = Vector3.forward;
             dir.Normalize();
             float outward = Mathf.Max(bounds.extents.x, bounds.extents.z) * 0.2f;
-            labelGo.transform.position = new Vector3(bounds.center.x, bounds.max.y + labelHeight, bounds.center.z) + dir * outward;
-            float yRot = GetLabelYRotationForSpace(i);
-            labelGo.transform.rotation = Quaternion.Euler(90f, yRot, 0f);
-            labelGo.transform.localScale = Vector3.one * Mathf.Max(0.05f, labelScale);
-            var tmp = labelGo.AddComponent<TextMeshPro>();
-            tmp.text = label;
-            tmp.fontSize = Mathf.Max(24, labelFontSize);
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.color = labelColor;
-            tmp.outlineWidth = labelOutlineWidth;
-            tmp.outlineColor = labelOutlineColor;
-            tmp.overflowMode = TextOverflowModes.Ellipsis;
-            tmp.textWrappingMode = TextWrappingModes.NoWrap;
-            tmp.enableAutoSizing = true;
-            tmp.fontSizeMin = 14;
-            tmp.fontSizeMax = Mathf.Max(24, labelFontSize);
-            if (TMP_Settings.defaultFontAsset != null)
-                tmp.font = TMP_Settings.defaultFontAsset;
-            if (info != null && info.IsPurchasable)
-                _rentLabels[i] = tmp;
-            var rt = labelGo.GetComponent<RectTransform>();
-            if (rt != null)
+            Vector3 basePos = new Vector3(bounds.center.x, bounds.max.y + labelHeight, bounds.center.z) + dir * outward;
+            float yRot = labelBillboard ? 0f : GetLabelYRotationForSpace(i);
+            Quaternion rot = Quaternion.Euler(90f, yRot, 0f);
+            float scale = Mathf.Max(0.05f, labelScale);
+
+            var labelGo = new GameObject($"Label_{i}");
+            labelGo.transform.SetParent(labelsRoot.transform);
+            labelGo.transform.position = basePos;
+            labelGo.transform.rotation = rot;
+            labelGo.transform.localScale = Vector3.one * scale;
+            _labelTransforms[i] = labelGo.transform;
+
+            var nameGo = new GameObject("Name");
+            nameGo.transform.SetParent(labelGo.transform, false);
+            nameGo.transform.localPosition = new Vector3(0f, labelNameRentSpacing, 0f);
+            nameGo.transform.localRotation = Quaternion.identity;
+            nameGo.transform.localScale = Vector3.one;
+            var nameTmp = nameGo.AddComponent<TextMeshPro>();
+            nameTmp.text = name;
+            SetupLabelTmp(nameTmp, sizeDelta, fontSize);
+            _nameLabels[i] = nameTmp;
+
+            if (isPurchasable)
             {
-                float ex = Mathf.Clamp(bounds.size.x, 0.3f, 2.5f) * 0.78f;
-                float ez = Mathf.Clamp(bounds.size.z, 0.3f, 2.5f) * 0.78f;
-                float s = Mathf.Max(0.01f, labelScale);
-                float w = Mathf.Max(ex, ez) / s;
-                float h = Mathf.Min(ex, ez) / s * 0.5f;
-                rt.sizeDelta = new Vector2(w, Mathf.Max(h, 2f));
+                var rentGo = new GameObject("Rent");
+                rentGo.transform.SetParent(labelGo.transform, false);
+                rentGo.transform.localPosition = new Vector3(0f, -labelNameRentSpacing, 0f);
+                rentGo.transform.localRotation = Quaternion.identity;
+                rentGo.transform.localScale = Vector3.one;
+                var rentTmp = rentGo.AddComponent<TextMeshPro>();
+                rentTmp.text = $"{info.rent} TL";
+                SetupLabelTmp(rentTmp, sizeDelta, fontSize);
+                _rentLabels[i] = rentTmp;
             }
         }
     }
@@ -344,6 +464,34 @@ public class BoardManager : MonoBehaviour
         RefreshRentLabels();
     }
 
+    private void LateUpdate()
+    {
+        if (!labelBillboard || _labelTransforms == null) return;
+        var cam = Camera.main;
+#if UNITY_EDITOR
+        if (cam == null && !Application.isPlaying)
+            cam = SceneView.lastActiveSceneView?.camera;
+#endif
+        if (cam == null) return;
+        Vector3 camPos = cam.transform.position;
+        for (int i = 0; i < _labelTransforms.Length; i++)
+        {
+            var t = _labelTransforms[i];
+            if (t == null) continue;
+            Vector3 pos = t.position;
+            if (labelBillboardYOnly)
+            {
+                float yRot = Mathf.Atan2(camPos.x - pos.x, camPos.z - pos.z) * Mathf.Rad2Deg + 180f;
+                t.rotation = Quaternion.Euler(90f, yRot, 0f);
+            }
+            else
+            {
+                t.LookAt(2f * pos - camPos);
+                t.Rotate(90f, 0f, 0f);
+            }
+        }
+    }
+
     private void RefreshRentLabels()
     {
         if (_rentLabels == null || boardSpaceData == null || PropertyManager.Instance == null) return;
@@ -352,10 +500,29 @@ public class BoardManager : MonoBehaviour
             if (_rentLabels[i] == null) continue;
             var info = boardSpaceData.GetSpace(i);
             if (info == null || !info.IsPurchasable) continue;
-            string name = !string.IsNullOrWhiteSpace(info.displayName) ? info.displayName : $"Space_{i}";
             int rent = PropertyManager.Instance.GetRentWithHouses(i, info.rent);
-            _rentLabels[i].text = $"{name}\n{rent} TL";
+            _rentLabels[i].text = $"{rent} TL";
         }
+    }
+
+    private void SetupLabelTmp(TextMeshPro tmp, Vector2 sizeDelta, int fontSize)
+    {
+        var rt = tmp.rectTransform;
+        rt.sizeDelta = sizeDelta;
+        tmp.fontSize = fontSize;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color = labelColor;
+        tmp.outlineWidth = labelOutlineWidth;
+        tmp.outlineColor = labelOutlineColor;
+        tmp.overflowMode = TextOverflowModes.Overflow;
+        tmp.textWrappingMode = TextWrappingModes.NoWrap;
+        tmp.enableWordWrapping = false;
+        tmp.enableAutoSizing = true;
+        tmp.fontSizeMin = Mathf.Max(12, fontSize / 2);
+        tmp.fontSizeMax = fontSize;
+        tmp.font = GetLabelFontAsset();
+        tmp.fontStyle = labelFontStyle;
+        tmp.ForceMeshUpdate();
     }
 
     private void OnDestroy()
@@ -452,6 +619,19 @@ public class BoardManager : MonoBehaviour
     }
 
 #if UNITY_EDITOR
+    /// <summary>Etiketleri silip yeniden olusturur. BoardSpaceData'dan isim/kira alir. Duzenledikten sonra sahneyi kaydet (Ctrl+S).</summary>
+    [ContextMenu("Önizleme: Etiketleri Yenile")]
+    public void EditorRefreshLabels()
+    {
+        if (Application.isPlaying) return;
+        var existing = transform.Find("Board_Labels");
+        if (existing != null) DestroyImmediate(existing);
+        if (boardRoot != null && TryBuildSpacesFromModel(boardRoot))
+        {
+            CreateLabelsForModelSpaces(forceRebuild: true);
+        }
+    }
+
     private void OnValidate()
     {
         if (boardRoot != null)

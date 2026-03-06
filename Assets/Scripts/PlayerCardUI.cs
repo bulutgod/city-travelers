@@ -16,8 +16,8 @@ public class PlayerCardUI : MonoBehaviour
     [Header("Üst Bar (Avatar + İsim)")]
     [SerializeField] private RawImage steamAvatarImage;      // Steam profil fotoğrafı
     [SerializeField] private TextMeshProUGUI steamNameText;  // Steam kullanıcı adı
-    [Tooltip("Avatar daire alanının çapı (px). Tasarımdaki rounded square içindeki daireye uyum için.")]
-    [SerializeField] private float avatarSize = 38f;
+    [Tooltip("Avatar boyutu (px). 0 = prefab'daki RectTransform kullanılır (elle ayarlayabilirsin). >0 = bu değer zorlanır.")]
+    [SerializeField] private float avatarSize = 0f;
 
     [Header("Karakter Alan?")]
     [SerializeField] private Image characterBackground;      // Renkli arka plan
@@ -32,6 +32,10 @@ public class PlayerCardUI : MonoBehaviour
     [SerializeField] private GameObject waitingOverlay;      // "Bekleniyor" paneli
     [SerializeField] private GameObject activeContent;       // Normal kart içeriği
     [SerializeField] private TextMeshProUGUI readyLabel;    // "Hazır" yazısı (opsiyonel)
+    [Tooltip("Hazır olduğunda avatar üzerinde gösterilecek yeşil tik sprite. Boş bırakılırsa sadece HAZIR yazısı kullanılır.")]
+    [SerializeField] private Sprite readyTickSprite;
+    [Tooltip("Hazır tik için Image. Boş bırakılırsa ve readyTickSprite atanmışsa otomatik oluşturulur (avatar üzerinde).")]
+    [SerializeField] private Image readyTickImage;
 
     [Header("Karakter Arka Plan Renkleri")]
     [SerializeField]
@@ -49,6 +53,7 @@ public class PlayerCardUI : MonoBehaviour
 
     private PlayerObject _player;
     private TextMeshProUGUI _runtimeReadyLabel;
+    private Image _runtimeReadyTick;
 
     /// <summary>Bu kart yerel oyuncuya m? ait?</summary>
     public bool IsLocalPlayer => _player != null && _player.isLocalPlayer;
@@ -130,6 +135,9 @@ public class PlayerCardUI : MonoBehaviour
         rl.gameObject.SetActive(true);
         rl.text = player.isReady ? "HAZIR" : "";
         rl.color = player.isReady ? new Color(0.2f, 0.9f, 0.3f, 1f) : new Color(0.5f, 0.5f, 0.5f, 0.8f);
+
+        // Yeşil tik: avatar üzerinde hazır olduğunda göster
+        RefreshReadyTick(player.isReady);
     }
 
     /// <summary>
@@ -147,6 +155,7 @@ public class PlayerCardUI : MonoBehaviour
         if (steamNameText) steamNameText.text = "BOŞ";
         if (readyLabel) readyLabel.gameObject.SetActive(false);
         if (_runtimeReadyLabel) _runtimeReadyLabel.gameObject.SetActive(false);
+        RefreshReadyTick(false);
         if (steamAvatarImage)
         {
             AvatarCircleMask.ApplyTo(steamAvatarImage);
@@ -174,6 +183,42 @@ public class PlayerCardUI : MonoBehaviour
         if (index < 0) index += count;
 
         characterBackground.color = characterBgColors[index];
+    }
+
+    private void RefreshReadyTick(bool show)
+    {
+        var tickImg = readyTickImage ?? _runtimeReadyTick;
+        if (show && (readyTickSprite != null || tickImg != null))
+        {
+            if (tickImg == null && readyTickSprite != null && steamAvatarImage != null)
+            {
+                var go = new GameObject("ReadyTick");
+                go.transform.SetParent(steamAvatarImage.transform, false);
+                var rt = go.AddComponent<RectTransform>();
+                rt.anchorMin = new Vector2(1, 1);
+                rt.anchorMax = new Vector2(1, 1);
+                rt.pivot = new Vector2(1, 1);
+                rt.anchoredPosition = new Vector2(4, -4);
+                float size = Mathf.Min(avatarSize * 0.5f, 20f);
+                rt.sizeDelta = new Vector2(size, size);
+                _runtimeReadyTick = go.AddComponent<Image>();
+                _runtimeReadyTick.sprite = readyTickSprite;
+                _runtimeReadyTick.color = new Color(0.2f, 0.9f, 0.3f, 1f);
+                _runtimeReadyTick.raycastTarget = false;
+                tickImg = _runtimeReadyTick;
+            }
+            if (tickImg != null)
+            {
+                tickImg.gameObject.SetActive(true);
+                if (tickImg.sprite == null && readyTickSprite != null)
+                    tickImg.sprite = readyTickSprite;
+                tickImg.color = new Color(0.2f, 0.9f, 0.3f, 1f);
+            }
+        }
+        else if (tickImg != null)
+        {
+            tickImg.gameObject.SetActive(false);
+        }
     }
 
     public void SetDiceSprite(Sprite sprite)

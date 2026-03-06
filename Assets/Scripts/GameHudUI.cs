@@ -16,6 +16,8 @@ public class GameHudUI : MonoBehaviour
 {
     [Tooltip("HUD layout ayarlari. Bos birakilirsa varsayilan degerler kullanilir. Assets > Create > Brom City > Game HUD Layout Config ile olustur.")]
     [SerializeField] private GameHudLayoutConfig _layoutConfig;
+    [Tooltip("Override canvas kullanildiginda: true = config font/scale degerleri sahne objelerine uygulanir; false = sahne objelerinin kendi degerleri kullanilir.")]
+    [SerializeField] private bool applyConfigToSceneObjects = true;
 
     [Header("Opsiyonel UI tasarimlari (yapildikca Inspector'dan ata)")]
     [Tooltip("Tasarim hazir olunca bu Canvas'i ata; cocuk objeleri asagidaki alanlara surukle veya isimlerle eslesecek sekilde birak (TurnText, RollText, RollButton, MoneyText, BuyPanel, NotificationToast, GameOverPanel, EscapeMenuPanel, GameDurationPanel, SettingsButton, Corner Huds). Bos birakilirsa UI koddan uretilir.")]
@@ -162,6 +164,7 @@ public class GameHudUI : MonoBehaviour
         _gameOverPanel = null; _gameOverText = null; _gameOverMenuButton = null;
         _escapeMenuPanel = null; _escapeMenuBackdrop = null;
         _cardPanel = null; _cardPanelRect = null; _cardTitleText = null; _cardBodyText = null; _cardAmountText = null; _cardOkButton = null;
+        if (_eventPopupCanvas != null) { Destroy(_eventPopupCanvas); _eventPopupCanvas = null; }
         _statsPanel = null; _statsPanelText = null; _statsCloseButton = null; _statsButton = null;
         _rematchButton = null; _spectatorLabel = null; _teamModeLabel = null;
     }
@@ -197,11 +200,15 @@ public class GameHudUI : MonoBehaviour
             if (_canvas.GetComponent<GraphicRaycaster>() == null)
                 canvasGo.AddComponent<GraphicRaycaster>();
             ResolveOverrides(canvasGo.transform);
+            if (applyConfigToSceneObjects && C != null)
+                ApplyLayoutConfigToOverrides();
             if (_escapeMenuPanel == null)
             {
                 CreateEscapeMenu(canvasGo.transform);
                 if (_escapeMenuBackdrop != null) _escapeMenuBackdrop.SetActive(false);
             }
+            if (_cardPanel == null)
+                CreateCardPanel(canvasGo.transform);
             _uiBuilt = true;
             return;
         }
@@ -217,8 +224,8 @@ public class GameHudUI : MonoBehaviour
 
         var firstPos = C != null ? C.leftPanelFirstTextPos : new Vector2(12, -12);
         var spacing = C != null ? C.leftPanelLineSpacing : 32f;
-        var textSize = C != null ? C.leftPanelTextSize : new Vector2(500, 28);
-        var fontSize = C != null ? C.leftPanelFontSize : 22;
+        var textSize = C != null ? C.ScaledSize(C.leftPanelTextSize) : new Vector2(500, 28);
+        var fontSize = C != null ? C.ScaledFontSize(C.leftPanelFontSize) : 22;
 
         _turnText = CreateText(canvasGo.transform, "TurnText", firstPos, "Turn: -", textSize, fontSize);
         _rollText = CreateText(canvasGo.transform, "RollText", firstPos + new Vector2(0, -spacing), "Last Roll: -", textSize, fontSize);
@@ -226,7 +233,7 @@ public class GameHudUI : MonoBehaviour
         _statusText = CreateText(canvasGo.transform, "StatusText", firstPos + new Vector2(0, -spacing * 3), "Status: -", textSize, fontSize);
         _moneyText = CreateText(canvasGo.transform, "MoneyText", firstPos + new Vector2(0, -spacing * 4), "Para: 1500", textSize, fontSize);
         var summaryPos = C != null ? C.playerSummaryPos : new Vector2(12, -172);
-        var summaryFontSize = C != null ? C.playerSummaryFontSize : 16;
+        var summaryFontSize = C != null ? C.ScaledFontSize(C.playerSummaryFontSize) : 16;
         _playerSummaryText = CreateText(canvasGo.transform, "PlayerSummary", summaryPos, "", textSize, summaryFontSize);
         _playerSummaryText.color = new Color(0.85f, 0.85f, 0.9f, 1f);
         _playerSummaryText.gameObject.SetActive(false);
@@ -234,7 +241,7 @@ public class GameHudUI : MonoBehaviour
         CreatePlayerCornerHuds(canvasGo.transform);
 
         var timerPos = C != null ? C.turnTimerPos : new Vector2(12, -204);
-        var timerFontSize = C != null ? C.turnTimerFontSize : 16;
+        var timerFontSize = C != null ? C.ScaledFontSize(C.turnTimerFontSize) : 16;
         _turnTimerText = CreateText(canvasGo.transform, "TurnTimer", timerPos, "", textSize, timerFontSize);
         _turnTimerText.color = new Color(0.9f, 0.85f, 0.5f, 1f);
 
@@ -256,7 +263,7 @@ public class GameHudUI : MonoBehaviour
         buttonRt.anchorMax = C != null ? C.rollButtonAnchorMax : new Vector2(1, 0);
         buttonRt.pivot = C != null ? C.rollButtonPivot : new Vector2(1, 0);
         buttonRt.anchoredPosition = C != null ? C.rollButtonPosition : new Vector2(-16, 16);
-        buttonRt.sizeDelta = C != null ? C.rollButtonSize : new Vector2(180, 52);
+        buttonRt.sizeDelta = C != null ? C.ScaledSize(C.rollButtonSize) : new Vector2(180, 52);
 
         var img = buttonGo.AddComponent<Image>();
         img.color = _buttonIdle;
@@ -265,7 +272,8 @@ public class GameHudUI : MonoBehaviour
         _rollButton.targetGraphic = img;
         _rollButton.onClick.AddListener(OnRollClicked);
 
-        var txt = CreateText(buttonGo.transform, "RollButtonText", Vector2.zero, "ZAR BEKLE");
+        var rollFontSize = C != null ? C.ScaledFontSize(C.rollButtonFontSize) : 18;
+        var txt = CreateText(buttonGo.transform, "RollButtonText", Vector2.zero, "ZAR BEKLE", null, rollFontSize);
         _rollButtonText = txt;
         txt.alignment = TextAnchor.MiddleCenter;
         txt.fontStyle = FontStyle.Bold;
@@ -380,6 +388,109 @@ public class GameHudUI : MonoBehaviour
         CreateStatsPanel(canvasGo.transform);
 
         _uiBuilt = true;
+    }
+
+    /// <summary>Config degerlerini mevcut UI elemanlarina uygular. Runtime'da config degistirince Inspector'da sag tiklayip cagirilabilir.</summary>
+    [ContextMenu("Apply Layout Config")]
+    public void RefreshFromConfig()
+    {
+        if (C == null) return;
+        if (overrideCanvas != null && !applyConfigToSceneObjects) return;
+        ApplyLayoutConfigToOverrides();
+    }
+
+    private void ApplyLayoutConfigToOverrides()
+    {
+        if (C == null) return;
+        if (C.customFont != null)
+        {
+            ApplyFont(_turnText, C.customFont);
+            ApplyFont(_rollText, C.customFont);
+            ApplyFont(_youText, C.customFont);
+            ApplyFont(_statusText, C.customFont);
+            ApplyFont(_moneyText, C.customFont);
+            ApplyFont(_playerSummaryText, C.customFont);
+            ApplyFont(_turnTimerText, C.customFont);
+            ApplyFont(_rollButtonText, C.customFont);
+            ApplyFont(_jailPayButtonText, C.customFont);
+            ApplyFont(_buyPanelText, C.customFont);
+            ApplyFont(_rentOrBuyInfoText, C.customFont);
+            ApplyFont(_notificationText, C.customFont);
+            ApplyFont(_gameOverText, C.customFont);
+            ApplyFont(_gameDurationText, C.customFont);
+            ApplyFont(_buildPriceText, C.customFont);
+            if (_playerCornerHuds != null)
+                for (int i = 0; i < _playerCornerHuds.Length; i++)
+                {
+                    ApplyFont(_playerCornerHuds[i].nameText, C.customFont);
+                    ApplyFont(_playerCornerHuds[i].moneyText, C.customFont);
+                }
+        }
+        if (C.customTmpFont != null)
+        {
+            ApplyTmpFont(_rentOrBuyInfoTextTMP, C.customTmpFont);
+            ApplyTmpFont(_gameDurationTextTMP, C.customTmpFont);
+            ApplyTmpFont(_buildPriceTextTMP, C.customTmpFont);
+            if (_playerCornerHuds != null)
+                for (int i = 0; i < _playerCornerHuds.Length; i++)
+                {
+                    ApplyTmpFont(_playerCornerHuds[i].nameTextTMP, C.customTmpFont);
+                    ApplyTmpFont(_playerCornerHuds[i].moneyTextTMP, C.customTmpFont);
+                }
+        }
+        ApplyFontSize(_turnText, C.ScaledFontSize(C.leftPanelFontSize));
+        ApplyFontSize(_rollText, C.ScaledFontSize(C.leftPanelFontSize));
+        ApplyFontSize(_youText, C.ScaledFontSize(C.leftPanelFontSize));
+        ApplyFontSize(_statusText, C.ScaledFontSize(C.leftPanelFontSize));
+        ApplyFontSize(_moneyText, C.ScaledFontSize(C.leftPanelFontSize));
+        ApplyFontSize(_playerSummaryText, C.ScaledFontSize(C.playerSummaryFontSize));
+        ApplyFontSize(_turnTimerText, C.ScaledFontSize(C.turnTimerFontSize));
+        ApplyFontSize(_rollButtonText, C.ScaledFontSize(C.rollButtonFontSize));
+        ApplyFontSize(_jailPayButtonText, C.ScaledFontSize(C.rollButtonFontSize));
+        ApplyFontSize(_buyPanelText, C.ScaledFontSize(18));
+        ApplyFontSize(_rentOrBuyInfoText, C.ScaledFontSize(C.rentOrBuyInfoFontSize));
+        ApplyFontSize(_rentOrBuyInfoTextTMP, C.ScaledFontSize(C.rentOrBuyInfoFontSize));
+        ApplyFontSize(_notificationText, C.ScaledFontSize(C.notificationFontSize));
+        ApplyFontSize(_gameOverText, C.ScaledFontSize(C.gameOverWinnerFontSize));
+        ApplyFontSize(_gameDurationText, C.ScaledFontSize(C.gameDurationTextFontSize));
+        ApplyFontSize(_gameDurationTextTMP, C.ScaledFontSize(C.gameDurationTextFontSize));
+        ApplyFontSize(_buildPriceText, C.ScaledFontSize(16));
+        ApplyFontSize(_buildPriceTextTMP, C.ScaledFontSize(16));
+        if (_playerCornerHuds != null)
+        {
+            for (int i = 0; i < _playerCornerHuds.Length; i++)
+            {
+                ApplyFontSize(_playerCornerHuds[i].nameText, C.ScaledFontSize(C.cornerHudNameFontSize));
+                ApplyFontSize(_playerCornerHuds[i].moneyText, C.ScaledFontSize(C.cornerHudMoneyFontSize));
+                ApplyFontSize(_playerCornerHuds[i].nameTextTMP, C.ScaledFontSize(C.cornerHudNameFontSize));
+                ApplyFontSize(_playerCornerHuds[i].moneyTextTMP, C.ScaledFontSize(C.cornerHudMoneyFontSize));
+            }
+        }
+        if (C.globalScale != 1f && _rollButton != null)
+        {
+            var rt = _rollButton.GetComponent<RectTransform>();
+            if (rt != null) rt.sizeDelta = C.ScaledSize(C.rollButtonSize);
+        }
+    }
+
+    private static void ApplyFont(Text t, Font font)
+    {
+        if (t != null && font != null) t.font = font;
+    }
+
+    private static void ApplyTmpFont(TMP_Text t, TMP_FontAsset font)
+    {
+        if (t != null && font != null) t.font = font;
+    }
+
+    private static void ApplyFontSize(Text t, int size)
+    {
+        if (t != null && size > 0) t.fontSize = size;
+    }
+
+    private static void ApplyFontSize(TMP_Text t, int size)
+    {
+        if (t != null && size > 0) t.fontSize = size;
     }
 
     private static Transform FindRecursive(Transform root, string name)
@@ -863,6 +974,7 @@ public class GameHudUI : MonoBehaviour
 
     private Font GetRuntimeFont()
     {
+        if (C != null && C.customFont != null) return C.customFont;
         var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         if (font != null) return font;
         return Resources.GetBuiltinResource<Font>("Arial.ttf");
@@ -1386,10 +1498,28 @@ public class GameHudUI : MonoBehaviour
         _localPlayer.CmdBuyOrBuild(spaceIndex, _selectedHouseCount);
     }
 
+    private GameObject _eventPopupCanvas;
+
     private void CreateCardPanel(Transform parent)
     {
+        var canvasGo = new GameObject("EventPopupCanvas");
+        canvasGo.transform.SetParent(transform);
+        var canvas = canvasGo.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 999;
+        canvas.pixelPerfect = false;
+        if (canvasGo.GetComponent<CanvasScaler>() == null)
+        {
+            var scaler = canvasGo.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+        }
+        if (canvasGo.GetComponent<GraphicRaycaster>() == null)
+            canvasGo.AddComponent<GraphicRaycaster>();
+        _eventPopupCanvas = canvasGo;
+
         _cardPanel = new GameObject("CardPanel");
-        _cardPanel.transform.SetParent(parent, false);
+        _cardPanel.transform.SetParent(canvasGo.transform, false);
         var panelRt = _cardPanel.AddComponent<RectTransform>();
         panelRt.anchorMin = Vector2.zero;
         panelRt.anchorMax = Vector2.one;
@@ -1406,20 +1536,20 @@ public class GameHudUI : MonoBehaviour
         _cardPanelRect.anchorMax = new Vector2(0.5f, 0.5f);
         _cardPanelRect.pivot = new Vector2(0.5f, 0.5f);
         _cardPanelRect.anchoredPosition = Vector2.zero;
-        _cardPanelRect.sizeDelta = new Vector2(380, 220);
+        _cardPanelRect.sizeDelta = new Vector2(440, 280);
         var cardImg = cardGo.AddComponent<Image>();
         cardImg.color = new Color(0.95f, 0.9f, 0.75f, 1f);
 
-        _cardTitleText = CreateText(cardGo.transform, "Title", new Vector2(0, 75), "ŞANS", new Vector2(340, 32), 24);
+        _cardTitleText = CreateText(cardGo.transform, "Title", new Vector2(0, 100), "ŞANS", new Vector2(400, 40), 26);
         _cardTitleText.alignment = TextAnchor.MiddleCenter;
         _cardTitleText.fontStyle = FontStyle.Bold;
         _cardTitleText.color = new Color(0.2f, 0.15f, 0.1f, 1f);
 
-        _cardBodyText = CreateText(cardGo.transform, "Body", new Vector2(0, 10), "", new Vector2(340, 90), 18);
+        _cardBodyText = CreateText(cardGo.transform, "Body", new Vector2(0, 20), "", new Vector2(400, 120), 20);
         _cardBodyText.alignment = TextAnchor.MiddleCenter;
         _cardBodyText.color = new Color(0.15f, 0.1f, 0.05f, 1f);
 
-        _cardAmountText = CreateText(cardGo.transform, "Amount", new Vector2(0, -45), "", new Vector2(340, 28), 22);
+        _cardAmountText = CreateText(cardGo.transform, "Amount", new Vector2(0, -55), "", new Vector2(400, 32), 24);
         _cardAmountText.alignment = TextAnchor.MiddleCenter;
         _cardAmountText.fontStyle = FontStyle.Bold;
 
@@ -1429,7 +1559,7 @@ public class GameHudUI : MonoBehaviour
         okRt.anchorMin = new Vector2(0.5f, 0);
         okRt.anchorMax = new Vector2(0.5f, 0);
         okRt.pivot = new Vector2(0.5f, 0);
-        okRt.anchoredPosition = new Vector2(0, -85);
+        okRt.anchoredPosition = new Vector2(0, -110);
         okRt.sizeDelta = new Vector2(120, 36);
         var okImg = okGo.AddComponent<Image>();
         okImg.color = new Color(0.25f, 0.5f, 0.3f, 1f);
@@ -1716,31 +1846,45 @@ public class GameHudUI : MonoBehaviour
         if (_cardPanel != null && GameTurnManager.Instance != null)
         {
             float cardTime = GameTurnManager.LastCardTime;
-            if (cardTime > 0 && (Time.time - cardTime) < CardShowDuration && !_cardDismissed)
+            if (cardTime > 0)
             {
-                if (Mathf.Abs(cardTime - _lastShownCardTime) > 0.01f)
+                bool isNewCard = Mathf.Abs(cardTime - _lastShownCardTime) > 0.01f;
+                if (isNewCard)
                 {
                     _lastShownCardTime = cardTime;
                     _cardDismissed = false;
                     _cardFlipProgress = 0f;
                 }
-                _cardPanel.SetActive(true);
-                if (_cardTitleText != null) _cardTitleText.text = GameTurnManager.LastCardIsChance ? "ŞANS" : "KASA";
-                if (_cardBodyText != null) _cardBodyText.text = GameTurnManager.LastCardText;
-                if (_cardAmountText != null)
+                if ((Time.time - cardTime) < CardShowDuration && !_cardDismissed)
                 {
-                    int amt = GameTurnManager.LastCardAmount;
-                    _cardAmountText.text = amt != 0 ? $"{(amt > 0 ? "+" : "")}{amt} TL" : "";
-                    _cardAmountText.color = amt >= 0 ? new Color(0.1f, 0.5f, 0.2f, 1f) : new Color(0.7f, 0.2f, 0.2f, 1f);
+                    _cardPanel.transform.SetAsLastSibling();
+                    _cardPanel.SetActive(true);
+                    Debug.Log($"[OLAY UI] Popup gösteriliyor: {GameTurnManager.LastCardTitle} - {GameTurnManager.LastCardText}");
+                    string title = !string.IsNullOrEmpty(GameTurnManager.LastCardTitle)
+                        ? GameTurnManager.LastCardTitle
+                        : (GameTurnManager.LastCardIsChance ? "ŞANS" : "KASA");
+                    if (_cardTitleText != null) _cardTitleText.text = title;
+                    if (_cardBodyText != null) _cardBodyText.text = GameTurnManager.LastCardText;
+                    if (_cardAmountText != null)
+                    {
+                        int amt = GameTurnManager.LastCardAmount;
+                        _cardAmountText.text = amt != 0 ? $"{(amt > 0 ? "+" : "")}{amt} TL" : "";
+                        _cardAmountText.color = amt >= 0 ? new Color(0.1f, 0.5f, 0.2f, 1f) : new Color(0.7f, 0.2f, 0.2f, 1f);
+                    }
+                    if (_cardFlipProgress < 1f)
+                    {
+                        _cardFlipProgress += Time.deltaTime / CardFlipAnimDuration;
+                        if (_cardFlipProgress > 1f) _cardFlipProgress = 1f;
+                        float s = _cardFlipProgress <= 0.5f
+                            ? Mathf.Lerp(0f, 1.1f, _cardFlipProgress * 2f)
+                            : Mathf.Lerp(1.1f, 1f, (_cardFlipProgress - 0.5f) * 2f);
+                        if (_cardPanelRect != null) _cardPanelRect.localScale = new Vector3(1f, s, 1f);
+                    }
                 }
-                if (_cardFlipProgress < 1f)
+                else
                 {
-                    _cardFlipProgress += Time.deltaTime / CardFlipAnimDuration;
-                    if (_cardFlipProgress > 1f) _cardFlipProgress = 1f;
-                    float s = _cardFlipProgress <= 0.5f
-                        ? Mathf.Lerp(0f, 1.1f, _cardFlipProgress * 2f)
-                        : Mathf.Lerp(1.1f, 1f, (_cardFlipProgress - 0.5f) * 2f);
-                    if (_cardPanelRect != null) _cardPanelRect.localScale = new Vector3(1f, s, 1f);
+                    _cardPanel.SetActive(false);
+                    if (_cardPanelRect != null) _cardPanelRect.localScale = Vector3.one;
                 }
             }
             else
@@ -1748,6 +1892,11 @@ public class GameHudUI : MonoBehaviour
                 _cardPanel.SetActive(false);
                 if (_cardPanelRect != null) _cardPanelRect.localScale = Vector3.one;
             }
+        }
+        else if (_cardPanel == null && GameTurnManager.Instance != null && GameTurnManager.LastCardTime > 0 &&
+                 Mathf.Abs(GameTurnManager.LastCardTime - _lastShownCardTime) > 0.01f)
+        {
+            Debug.LogWarning("[OLAY UI] Kart paneli yok - olay log'da görülebilir: " + GameTurnManager.LastCardTitle + " | " + GameTurnManager.LastCardText);
         }
 
         if (_statsPanel != null && _statsPanel.activeSelf && GameStatsManager.Instance != null && _statsPanelText != null)
@@ -1881,10 +2030,11 @@ public class GameHudUI : MonoBehaviour
 
         bool yourTurn = _localPlayer.playerIndex == activeIndex;
         if (turn.isRolling) yourTurn = false;
+        bool canRollNow = turn != null && turn.CanRollNow();
         if (_rollButton != null)
         {
-            _rollButton.gameObject.SetActive(yourTurn);
-            _rollButton.interactable = true;
+            _rollButton.gameObject.SetActive(yourTurn && canRollNow);
+            _rollButton.interactable = yourTurn && canRollNow;
         }
 
         if (_jailPayButton != null)
@@ -1913,8 +2063,8 @@ public class GameHudUI : MonoBehaviour
         }
         else if (yourTurn)
         {
-            if (_statusText != null) _statusText.text = "Durum: SIRA SENDE - ZAR AT";
-            if (_rollButtonText != null) _rollButtonText.text = "ZAR AT";
+            if (_statusText != null) _statusText.text = canRollNow ? "Durum: SIRA SENDE - ZAR AT" : "Durum: Sıra sende - biraz bekleniyor...";
+            if (_rollButtonText != null) _rollButtonText.text = canRollNow ? "ZAR AT" : "BEKLE...";
             if (_rollButtonImage != null)
             {
                 float pulse = 0.85f + 0.15f * Mathf.Abs(Mathf.Sin(Time.time * 5f));

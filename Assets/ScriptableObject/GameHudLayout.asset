@@ -12,6 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e591de2de543d624290cc18d7f5966b9, type: 3}
   m_Name: GameHudLayout
   m_EditorClassIdentifier: Assembly-CSharp::GameHudLayoutConfig
+  customFont: {fileID: 12800000, guid: 3565fb88869c14b05bd0036fbaa95bd7, type: 3}
+  customTmpFont: {fileID: 11400000, guid: a46c429083dd047969e364acae150c19, type: 2}
+  globalFontScale: 1
+  globalScale: 1
   leftPanelAnchorMin: {x: 0, y: 1}
   leftPanelAnchorMax: {x: 0, y: 1}
   leftPanelPivot: {x: 0, y: 1}
@@ -28,6 +32,7 @@ MonoBehaviour:
   rollButtonPivot: {x: 1, y: 0}
   rollButtonPosition: {x: -16, y: 16}
   rollButtonSize: {x: 180, y: 52}
+  rollButtonFontSize: 18
   leaveButtonPosition: {x: 16, y: 54}
   leaveButtonSize: {x: 140, y: 40}
   leaveButtonFontSize: 16

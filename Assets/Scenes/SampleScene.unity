@@ -3517,8 +3517,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Singleplayer
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: a46c429083dd047969e364acae150c19, type: 2}
+  m_sharedMaterial: {fileID: 4840962806904703120, guid: a46c429083dd047969e364acae150c19, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -3878,8 +3878,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Matchmaking
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: a46c429083dd047969e364acae150c19, type: 2}
+  m_sharedMaterial: {fileID: 4840962806904703120, guid: a46c429083dd047969e364acae150c19, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -4836,29 +4836,29 @@ MonoBehaviour:
   diceSlotPrefab: {fileID: 7997819920156453828, guid: 1eeb8502bd5ca4241a20617a1fce3ac0, type: 3}
   diceSkins:
   - label: PEMBE
-    diceSprite: {fileID: 21300000, guid: 823a7c77734324fed9915ac8f7dba798, type: 3}
+    diceSprite: {fileID: 21300000, guid: a4c7a345675734b37b233c20e80614c5, type: 3}
     isUnlocked: 1
     coinPrice: 0
   - label: "MAV\u0130"
-    diceSprite: {fileID: 21300000, guid: 5ff8bd8429120423e8545846329ae29c, type: 3}
+    diceSprite: {fileID: 21300000, guid: 22c514be6ad9e4339ae29cbf024bcaf8, type: 3}
     isUnlocked: 1
     coinPrice: 0
-  - label: ALTIN
-    diceSprite: {fileID: 0}
-    isUnlocked: 0
-    coinPrice: 500
-  - label: "S\u0130YAH"
-    diceSprite: {fileID: 0}
-    isUnlocked: 0
-    coinPrice: 750
-  - label: "YE\u015E\u0130L"
-    diceSprite: {fileID: 0}
-    isUnlocked: 0
-    coinPrice: 300
+  - label: SARI
+    diceSprite: {fileID: 21300000, guid: b4d2757ab28014b35b3279f9d9e50df9, type: 3}
+    isUnlocked: 1
+    coinPrice: 0
   - label: KIRMIZI
-    diceSprite: {fileID: 0}
-    isUnlocked: 0
-    coinPrice: 400
+    diceSprite: {fileID: 21300000, guid: b2b2565eae25c404386067f51719162d, type: 3}
+    isUnlocked: 1
+    coinPrice: 0
+  - label: "YE\u015E\u0130L"
+    diceSprite: {fileID: 21300000, guid: a145bf41c56a746d48e66d101fc39f0c, type: 3}
+    isUnlocked: 1
+    coinPrice: 0
+  - label: KOYU PEMBE
+    diceSprite: {fileID: 21300000, guid: 466691cac51c64352ace6f5286f60ed2, type: 3}
+    isUnlocked: 1
+    coinPrice: 0
 --- !u!1001 &1429511034
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5292,8 +5292,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Arkadas
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: c6858254a93615e408f71aeadb53dc1a, type: 2}
-  m_sharedMaterial: {fileID: 8011932360368576171, guid: c6858254a93615e408f71aeadb53dc1a, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: a46c429083dd047969e364acae150c19, type: 2}
+  m_sharedMaterial: {fileID: 4840962806904703120, guid: a46c429083dd047969e364acae150c19, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []

@@ -4,12 +4,41 @@ using Mirror;
 using UnityEngine;
 
 /// <summary>
-/// Sans veya Kasa kartinin metni ve para etkisi.
+/// Kader Anı veya Gündem kartının metni ve para etkisi.
 /// </summary>
 public struct ChanceCard
 {
     public string text;
     public int amount; // pozitif = kazan, negatif = ode
+}
+
+/// <summary>
+/// Gündem kartı etkisi: bir sonraki Gündem'e kadar geçerli.
+/// </summary>
+public enum AgendaEffect
+{
+    None = 0,
+    Inflation = 1,       // Tüm kira bedelleri %20 artar
+    DoubleMisfortune = 2  // Çift zar atanlar ilerleyemez
+}
+
+/// <summary>
+/// Gündem kartı: metin + etki tipi.
+/// </summary>
+public struct GundemCard
+{
+    public string text;
+    public int effect; // AgendaEffect
+}
+
+/// <summary>
+/// Kader Anı kartı: metin, para etkisi, veya Merkez Bankası'na git.
+/// </summary>
+public struct KaderAniCard
+{
+    public string text;
+    public int amount;
+    public bool goToCentralBank;
 }
 
 /// <summary>
@@ -40,12 +69,24 @@ public class GameTurnManager : NetworkBehaviour
     [Header("Tahta Ayarlari")]
     [SerializeField] private int boardSpaceCount = 38;
 
-    [Header("Hapishane Kurallari")]
-    [Tooltip("Hapisten istege bagli cikis ucreti. 0 = ucretsiz.")]
+    [Header("Merkez Bankası")]
+    [Tooltip("Kumar ve Küresel Fon'dan gelen paralar burada birikir.")]
+    [SyncVar] public int centralBankPool = 0;
+
+    [Header("Gündem")]
+    [Tooltip("Aktif gündem etkisi (0=None, 1=Enflasyon, 2=Çifte Şansızlık).")]
+    [SyncVar] public int activeAgendaEffect = 0;
+
+    [Header("Tur gecisi")]
+    [Tooltip("Bir oyuncu turu bitirdikten sonra diger oyuncunun zar atabilmesi icin beklenecek minimum sure (saniye).")]
+    [SerializeField] private float minTurnStartDelay = 2f;
+
+    [Header("Hapishane")]
+    [Tooltip("Hapisten isteğe bağlı çıkış ücreti. 0 = ücretsiz.")]
     [SerializeField] private int jailReleaseFee = 50;
-    [Tooltip("Hapiste en fazla kac tur kalinir (zar atma denemesi sayisi).")]
+    [Tooltip("Hapiste en fazla kaç tur kalınır (zar atma denemesi sayısı).")]
     [SerializeField] private int maxJailTurns = 3;
-    [Tooltip("Ust uste kac cift zar atilirsa hapishaneye gider. 2 = test icin kolay, 3 = klasik monopoli.")]
+    [Tooltip("Üst üste kaç çift zar atılırsa hapishaneye gider. 2 = test için kolay, 3 = klasik monopoli.")]
     [SerializeField] private int doublesCountForJail = 3;
 
     [SyncVar] public int currentTurnPlayerIndex = -1;
@@ -59,13 +100,16 @@ public class GameTurnManager : NetworkBehaviour
 
     /// <summary> Son atılan zar çift (doubles) ise tur geçilmez, aynı oyuncu tekrar atar. </summary>
     private bool _lastRollWasDoubles;
-    /// <summary> Aynı turda üst üste kaç kez çift zar atıldı. 3 olunca hapishaneye gider. </summary>
+    /// <summary> Aynı turda üst üste kaç kez çift zar atıldı. N olunca hapishaneye gider. </summary>
     private int _consecutiveDoublesCount;
-    /// <summary> Her oyuncu icin hapiste kac tur gecirdigini takip eder. </summary>
-    private readonly System.Collections.Generic.Dictionary<int, int> _jailTurns =
-        new System.Collections.Generic.Dictionary<int, int>();
+    /// <summary> Her oyuncu için hapiste kaç tur geçirdiğini takip eder. Herkes 3 tur kalır (çift zar/ödeme 3. turda). </summary>
+    private readonly Dictionary<int, int> _jailTurns = new Dictionary<int, int>();
+    /// <summary> Son tur gecis zamani (Server). minTurnStartDelay dolana kadar zar atilamaz. </summary>
+    private float _turnStartTime;
 
     public int JailReleaseFee => jailReleaseFee;
+    /// <summary> Tur gecisinden sonra zar atilabilmesi icin gecen sure yeterli mi? (Client UI icin) </summary>
+    public bool CanRollNow() => (float)(NetworkTime.time - _turnStartNetworkTime) >= minTurnStartDelay;
 
     /// <summary> Oyun bittiğinde kazanan oyuncu indexi (-1 = devam ediyor). Bot da sayılır. </summary>
     [SyncVar] public int winnerPlayerIndex = -1;
@@ -79,12 +123,14 @@ public class GameTurnManager : NetworkBehaviour
     public static string LastNotification { get; private set; }
     public static float LastNotificationTime { get; private set; }
 
-    /// <summary> Şans/Kasa kartı UI için: son gösterilen kart. Client'ta Rpc ile set edilir. </summary>
+    /// <summary> Olay popup UI için: son gösterilen kart/olay. Client'ta Rpc ile set edilir. </summary>
     public static string LastCardText { get; private set; }
     public static string LastCardPlayerName { get; private set; }
     public static int LastCardAmount { get; private set; }
     public static bool LastCardIsChance { get; private set; }
     public static float LastCardTime { get; private set; }
+    /// <summary> Popup başlığı: KADER ANI, GÜNDEM, KUMAR vb. </summary>
+    public static string LastCardTitle { get; private set; }
 
     [Server]
     public void ServerSetGameDuration(float seconds)
@@ -176,6 +222,8 @@ public class GameTurnManager : NetworkBehaviour
         rollingPlayerIndex = -1;
         winnerPlayerIndex = snap.winnerPlayerIndex;
         winnerName = snap.winnerName ?? "";
+        centralBankPool = snap.centralBankPool;
+        activeAgendaEffect = snap.activeAgendaEffect;
 
         // Kopan host'un sirasiydiysa, sirayi hala oyundaki ilk oyuncuya ver.
         var players = GetOrderedPlayers();
@@ -201,6 +249,8 @@ public class GameTurnManager : NetworkBehaviour
         lastRollPlayerIndex = -1;
         isRolling = false;
         rollingPlayerIndex = -1;
+        centralBankPool = 0;
+        activeAgendaEffect = 0;
         _consecutiveDoublesCount = 0;
         _jailTurns.Clear();
 
@@ -215,10 +265,11 @@ public class GameTurnManager : NetworkBehaviour
 
         int firstIndex = Random.Range(0, players.Count);
         currentTurnPlayerIndex = players[firstIndex].playerIndex;
-        _turnStartNetworkTime = NetworkTime.time;
+        _turnStartNetworkTime = NetworkTime.time - minTurnStartDelay; // Ilk oyuncu hemen atabilsin
+        _turnStartTime = Time.time - minTurnStartDelay;
         Debug.Log($"[Turn] Basladi. Ilk oyuncu index: {currentTurnPlayerIndex} (rastgele secildi)");
         if (players[firstIndex] != null && players[firstIndex].isBot)
-            StartCoroutine(BotTurnAfterDelay(players[firstIndex], 1.5f));
+            StartCoroutine(BotTurnAfterDelay(players[firstIndex], minTurnStartDelay));
     }
 
     [Server]
@@ -249,15 +300,19 @@ public class GameTurnManager : NetworkBehaviour
             return false;
         }
 
+        if (Time.time - _turnStartTime < minTurnStartDelay)
+        {
+            Debug.LogWarning($"[Turn] Roll reddedildi: tur gecisi icin en az {minTurnStartDelay}s beklenmeli.");
+            return false;
+        }
+
         if (requester.isInJail)
         {
-            // Bot ise ve para yetiyorsa otomatik ucret odemeyi tercih et
             if (requester.isBot && jailReleaseFee > 0 && requester.money >= jailReleaseFee)
             {
                 ServerPayToLeaveJail(requester);
                 return true;
             }
-
             StartCoroutine(ServerJailRoll(requester));
             return true;
         }
@@ -271,6 +326,7 @@ public class GameTurnManager : NetworkBehaviour
         else
             _consecutiveDoublesCount = 0;
 
+        // Üst üste N çift zar -> hapishaneye git
         if (_consecutiveDoublesCount >= doublesCountForJail)
         {
             _consecutiveDoublesCount = 0;
@@ -278,11 +334,18 @@ public class GameTurnManager : NetworkBehaviour
             return true;
         }
 
+        // Gündem: Çifte Şansızlık - çift zar atanlar ilerleyemez
+        if (_lastRollWasDoubles && activeAgendaEffect == (int)AgendaEffect.DoubleMisfortune)
+        {
+            StartCoroutine(ServerRollNoMove(requester, dice1, dice2));
+            return true;
+        }
+
         StartCoroutine(ServerRollAndMove(requester, roll, dice1, dice2));
         return true;
     }
 
-    /// <summary>Ust uste N. cift zari goster, sonra hapishaneye gonder. Boylece 2. zar atisi ekranda gorunur.</summary>
+    /// <summary>Üst üste N. çift zarı göster, sonra hapishaneye gönder.</summary>
     [Server]
     private IEnumerator ServerShowDoublesThenSendToJail(PlayerObject requester, int dice1, int dice2)
     {
@@ -299,8 +362,7 @@ public class GameTurnManager : NetworkBehaviour
 
         isRolling = false;
         rollingPlayerIndex = -1;
-
-        SendToJail(requester);
+        SendToJail(requester, fromTripleDoubles: true);
     }
 
     [Server]
@@ -318,12 +380,12 @@ public class GameTurnManager : NetworkBehaviour
     }
 
     [Server]
-    private void SendToJail(PlayerObject requester)
+    private void SendToJail(PlayerObject requester, bool fromTripleDoubles = false)
     {
         int jailIndex = GetJailSpaceIndex();
         if (jailIndex < 0)
         {
-            Debug.LogWarning("[Turn] Tahtada Jail tipinde kare yok; hapishane kuralı atlandi.");
+            Debug.LogWarning("[Turn] Tahtada Jail tipinde kare yok; hapishane kuralı atlandı.");
             AdvanceTurn();
             return;
         }
@@ -333,10 +395,14 @@ public class GameTurnManager : NetworkBehaviour
             requester.isInJail = true;
             _jailTurns[requester.playerIndex] = 0;
         }
-        string jailMsg = requester != null
-            ? $"{requester.steamName} üst üste {doublesCountForJail}. çift zarı attı - hapishaneye gitti!"
-            : $"Üst üste {doublesCountForJail} çift zar - hapishaneye!";
-        RpcShowNotification(jailMsg);
+        if (fromTripleDoubles)
+            RpcShowNotification(requester != null
+                ? $"{requester.steamName} üst üste {doublesCountForJail}. çift zarı attı - hapishaneye gitti!"
+                : $"Üst üste {doublesCountForJail} çift zar - hapishaneye!");
+        else
+            RpcShowNotification(requester != null
+                ? $"{requester.steamName} Hapishaneye Gitti karesine indi!"
+                : "Hapishaneye gitti!");
         AdvanceTurn();
     }
 
@@ -369,7 +435,10 @@ public class GameTurnManager : NetworkBehaviour
         isRolling = false;
         rollingPlayerIndex = -1;
 
-        if (dice1 == dice2)
+        // Herkes 3 tur kalır: çift zarla çıkış sadece 3. turda (turns >= maxJailTurns)
+        bool canExitOnDoubles = dice1 == dice2 && turns >= maxJailTurns;
+
+        if (canExitOnDoubles)
         {
             if (requester != null)
             {
@@ -378,6 +447,13 @@ public class GameTurnManager : NetworkBehaviour
             }
             RpcShowNotification(requester != null ? $"{requester.steamName} çift zar attı, hapishaneden çıktı!" : "Çift zar - hapishaneden çıkıldı!");
             StartCoroutine(ServerRollAndMove(requester, roll, dice1, dice2));
+        }
+        else if (dice1 == dice2 && turns < maxJailTurns)
+        {
+            RpcShowNotification(requester != null
+                ? $"{requester.steamName} çift zar attı ama {maxJailTurns} tur dolmadan çıkamaz! ({turns}/{maxJailTurns})"
+                : $"Çift zar - {maxJailTurns} tur dolmadan çıkamazsın. ({turns}/{maxJailTurns})");
+            AdvanceTurn();
         }
         else if (forceExit)
         {
@@ -398,6 +474,29 @@ public class GameTurnManager : NetworkBehaviour
                 : "Çift zar atılamadı.");
             AdvanceTurn();
         }
+    }
+
+    /// <summary>Gündem Çifte Şansızlık: zar atılır ama hareket edilmez.</summary>
+    [Server]
+    private IEnumerator ServerRollNoMove(PlayerObject requester, int dice1, int dice2)
+    {
+        isRolling = true;
+        rollingPlayerIndex = requester != null ? requester.playerIndex : -1;
+        lastRollValue = dice1 + dice2;
+        lastRollDice1 = dice1;
+        lastRollDice2 = dice2;
+        lastRollPlayerIndex = requester != null ? requester.playerIndex : -1;
+
+        RpcPlayDiceRoll();
+        RpcPlayDiceLand(dice1, dice2);
+        yield return new WaitForSeconds(Mathf.Max(0f, delayBeforeMoveAfterRoll));
+
+        isRolling = false;
+        rollingPlayerIndex = -1;
+        RpcShowNotification(requester != null
+            ? $"{requester.steamName} çift zar attı ama Gündem: Çifte Şansızlık - ilerleyemez!"
+            : "Çifte Şansızlık: ilerleme yok.");
+        AdvanceTurn();
     }
 
     [Server]
@@ -430,6 +529,7 @@ public class GameTurnManager : NetworkBehaviour
                 yield break;
             }
             requester.ServerMoveBy(1, boardSpaceCount);
+            RpcPlaySpaceLanding(requester.currentSpaceIndex);
             if (requester.currentSpaceIndex == 0 && startBonus > 0)
             {
                 requester.hasPassedStart = true;
@@ -462,47 +562,127 @@ public class GameTurnManager : NetworkBehaviour
         {
             case SpaceInfo.SpaceType.Start:
                 break;
-            case SpaceInfo.SpaceType.Tax:
-                if (info != null && info.taxAmount > 0)
+            case SpaceInfo.SpaceType.KaderAni:
+                // Kader Anı: Kart çek - güvenli/riskli yol veya "Merkez Bankası'na git"
+                var kaderCard = GetRandomKaderAniCard();
+                if (kaderCard.goToCentralBank)
                 {
-                    requester.money = Mathf.Max(0, requester.money - info.taxAmount);
-                    if (GameStatsManager.Instance != null)
-                        GameStatsManager.Instance.RecordSpent(requester.playerIndex, info.taxAmount);
-                    RpcShowNotification($"{requester.steamName} vergi ödedi: -{info.taxAmount} TL");
-                    if (requester.money <= 0)
-                        ServerHandleBankruptcy(requester);
+                    RpcShowEventPopup("KADER ANI", kaderCard.text, requester.steamName, 0);
+                    int merkezIdx = GetMerkezBankasiSpaceIndex();
+                    if (merkezIdx >= 0)
+                    {
+                        requester.currentSpaceIndex = merkezIdx;
+                        int pool = centralBankPool;
+                        centralBankPool = 0;
+                        if (pool > 0)
+                        {
+                            requester.money += pool;
+                            if (GameStatsManager.Instance != null)
+                                GameStatsManager.Instance.RecordEarned(requester.playerIndex, pool);
+                            RpcShowNotification($"{requester.steamName} Merkez Bankası'na gitti - {pool} TL aldı!");
+                            RpcPlayCoinGain();
+                        }
+                    }
                 }
-                break;
-            case SpaceInfo.SpaceType.Chance:
-            case SpaceInfo.SpaceType.Community:
-                var card = GetRandomCard(spaceType == SpaceInfo.SpaceType.Chance);
-                bool isChance = (spaceType == SpaceInfo.SpaceType.Chance);
-                if (card.amount != 0)
+                else if (kaderCard.amount != 0)
                 {
-                    requester.money = Mathf.Max(0, requester.money + card.amount);
+                    requester.money = Mathf.Max(0, requester.money + kaderCard.amount);
                     if (GameStatsManager.Instance != null)
                     {
-                        if (card.amount > 0) GameStatsManager.Instance.RecordEarned(requester.playerIndex, card.amount);
-                        else GameStatsManager.Instance.RecordSpent(requester.playerIndex, -card.amount);
+                        if (kaderCard.amount > 0) GameStatsManager.Instance.RecordEarned(requester.playerIndex, kaderCard.amount);
+                        else GameStatsManager.Instance.RecordSpent(requester.playerIndex, -kaderCard.amount);
                     }
-                    RpcShowCardNotification(isChance, card.text, requester.steamName, card.amount);
+                    RpcShowEventPopup("KADER ANI", kaderCard.text, requester.steamName, kaderCard.amount);
                     if (requester.money <= 0)
-                        ServerHandleBankruptcy(requester);
+                        ServerHandleBankruptcy(requester, "Kader Anı kartından ödemeden sonra");
                 }
                 else
                 {
-                    RpcShowCardNotification(isChance, card.text, requester.steamName, 0);
+                    RpcShowEventPopup("KADER ANI", kaderCard.text, requester.steamName, 0);
                 }
+                break;
+            case SpaceInfo.SpaceType.MerkezBankasi:
+                // Merkez Bankası: Biriken parayı al
+                int bankPool = centralBankPool;
+                centralBankPool = 0;
+                if (bankPool > 0)
+                {
+                    requester.money += bankPool;
+                    if (GameStatsManager.Instance != null)
+                        GameStatsManager.Instance.RecordEarned(requester.playerIndex, bankPool);
+                    RpcShowEventPopup("MERKEZ BANKASI", $"{requester.steamName} biriken parayı aldı!", requester.steamName, bankPool);
+                    RpcPlayCoinGain();
+                }
+                else
+                {
+                    RpcShowEventPopup("MERKEZ BANKASI", "Kasa boş - ödül yok.", requester.steamName, 0);
+                }
+                break;
+            case SpaceInfo.SpaceType.Kumar:
+                // Kumar: Zar at - 8+ ise 5x nakit, 8- ise 10x merkez bankasına öde
+                int kumarD1 = Random.Range(1, 7);
+                int kumarD2 = Random.Range(1, 7);
+                int kumarSum = kumarD1 + kumarD2;
+                isRolling = true;
+                rollingPlayerIndex = requester.playerIndex;
+                RpcPlayDiceRoll();
+                RpcPlayDiceLand(kumarD1, kumarD2);
+                yield return new WaitForSeconds(2.5f);
+                isRolling = false;
+                rollingPlayerIndex = -1;
+                if (kumarSum >= 8)
+                {
+                    int win = kumarSum * 5;
+                    requester.money += win;
+                    if (GameStatsManager.Instance != null)
+                        GameStatsManager.Instance.RecordEarned(requester.playerIndex, win);
+                    RpcShowEventPopup("KUMAR", $"{requester.steamName} zar attı: {kumarSum} (8+)", requester.steamName, win);
+                    RpcPlayCoinGain();
+                }
+                else
+                {
+                    int pay = kumarSum * 10;
+                    requester.money = Mathf.Max(0, requester.money - pay);
+                    centralBankPool += pay;
+                    if (GameStatsManager.Instance != null)
+                        GameStatsManager.Instance.RecordSpent(requester.playerIndex, pay);
+                    RpcShowEventPopup("KUMAR", $"{requester.steamName} zar attı: {kumarSum} (8-)", requester.steamName, -pay);
+                    if (requester.money <= 0)
+                        ServerHandleBankruptcy(requester, "kumar masasından ödemeden sonra");
+                }
+                break;
+            case SpaceInfo.SpaceType.KureselFon:
+                // Küresel Fon: Sahip olunan yerlerin kira değerinin %20'si merkez bankasına
+                int totalRentValue = GetTotalRentValueForPlayer(requester.playerIndex);
+                int kureselAmount = Mathf.Max(0, totalRentValue * 20 / 100);
+                if (kureselAmount > 0)
+                {
+                    requester.money = Mathf.Max(0, requester.money - kureselAmount);
+                    centralBankPool += kureselAmount;
+                    if (GameStatsManager.Instance != null)
+                        GameStatsManager.Instance.RecordSpent(requester.playerIndex, kureselAmount);
+                    RpcShowEventPopup("KÜRESEL FON", $"Sahip olunan yerlerin kira değerinin %20'si Merkez Bankası'na ödendi.", requester.steamName, -kureselAmount);
+                    if (requester.money <= 0)
+                        ServerHandleBankruptcy(requester, "Küresel Fon ödemesinden sonra");
+                }
+                else
+                {
+                    RpcShowEventPopup("KÜRESEL FON", "Mülk yok - ödeme yok.", requester.steamName, 0);
+                }
+                break;
+            case SpaceInfo.SpaceType.Gundem:
+                // Gündem: Kart çek, etkisi bir sonraki Gündem'e kadar geçerli
+                var gundemCard = GetRandomGundemCard();
+                activeAgendaEffect = gundemCard.effect;
+                RpcShowEventPopup("GÜNDEM", gundemCard.text, requester.steamName, 0);
+                RpcShowNotification($"Gündem: {gundemCard.text}");
                 break;
             case SpaceInfo.SpaceType.Jail:
                 RpcShowNotification($"{requester.steamName} hapishanede ziyaret");
                 break;
             case SpaceInfo.SpaceType.GoToJail:
-                SendToJail(requester);
+                SendToJail(requester, fromTripleDoubles: false);
                 yield break;
-            case SpaceInfo.SpaceType.FreeParking:
-                RpcShowNotification($"{requester.steamName} park yeri");
-                break;
             default:
                 // Mülk/kira mantığı
                 if (PropertyManager.Instance != null)
@@ -520,7 +700,7 @@ public class GameTurnManager : NetworkBehaviour
                                 RpcShowRentNotification(requester.steamName, owner.steamName, rent);
                                 if (requester.money <= 0)
                                 {
-                                    ServerHandleBankruptcy(requester);
+                                    ServerHandleBankruptcy(requester, "kirayı ödeyemedi");
                                     AdvanceTurn();
                                     yield break;
                                 }
@@ -541,7 +721,7 @@ public class GameTurnManager : NetworkBehaviour
                                 if (_consecutiveDoublesCount >= doublesCountForJail)
                                 {
                                     _consecutiveDoublesCount = 0;
-                                    SendToJail(requester);
+                                    SendToJail(requester, fromTripleDoubles: true);
                                 }
                                 else
                                 {
@@ -575,7 +755,7 @@ public class GameTurnManager : NetworkBehaviour
                         if (houses < 5 && (houses == 4 || houses < 3 || requester.hasPassedStart))
                         {
                             var spaceInfo = BoardManager.Instance != null ? BoardManager.Instance.GetSpaceInfo(landedIndex) : null;
-                            if (spaceInfo != null && spaceInfo.IsPurchasable)
+                            if (spaceInfo != null && spaceInfo.IsPurchasable && spaceInfo.CanBuildHouses)
                             {
                                 int housePrice = spaceInfo.housePrice > 0 ? spaceInfo.housePrice : (spaceInfo.purchasePrice / 2);
                                 if (housePrice > 0 && requester.money >= housePrice)
@@ -598,7 +778,7 @@ public class GameTurnManager : NetworkBehaviour
             if (_consecutiveDoublesCount >= doublesCountForJail)
             {
                 _consecutiveDoublesCount = 0;
-                SendToJail(requester);
+                SendToJail(requester, fromTripleDoubles: true);
             }
             else
             {
@@ -626,7 +806,7 @@ public class GameTurnManager : NetworkBehaviour
             {
                 _consecutiveDoublesCount = 0;
                 var p = GetPlayerByIndex(currentTurnPlayerIndex);
-                SendToJail(p);
+                SendToJail(p, fromTripleDoubles: true);
             }
             else
             {
@@ -722,7 +902,6 @@ public class GameTurnManager : NetworkBehaviour
         else
             RpcShowNotification($"{name} hapisten çıktı. Zar atıyor...");
 
-        // Bildirimin gorunmesi icin kisa bekleyip sonra zar at.
         StartCoroutine(PayToLeaveJailThenRoll(requester, 1.5f));
     }
 
@@ -782,6 +961,13 @@ public class GameTurnManager : NetworkBehaviour
     }
 
     [ClientRpc]
+    private void RpcPlaySpaceLanding(int spaceIndex)
+    {
+        if (BoardManager.Instance != null)
+            BoardManager.Instance.PlaySpaceLandingAnimation(spaceIndex);
+    }
+
+    [ClientRpc]
     private void RpcShowNotification(string message)
     {
         LastNotification = message;
@@ -824,9 +1010,91 @@ public class GameTurnManager : NetworkBehaviour
         return deck[Random.Range(0, deck.Length)];
     }
 
+    private static readonly KaderAniCard[] KaderAniCards =
+    {
+        new KaderAniCard { text = "Güvenli yol: Banka faizi.", amount = 40, goToCentralBank = false },
+        new KaderAniCard { text = "Güvenli yol: Vergi iadesi.", amount = 80, goToCentralBank = false },
+        new KaderAniCard { text = "Güvenli yol: Küçük harcama.", amount = -30, goToCentralBank = false },
+        new KaderAniCard { text = "Güvenli yol: Kira geliri.", amount = 50, goToCentralBank = false },
+        new KaderAniCard { text = "Riskli yol: Büyük kazanç!", amount = 120, goToCentralBank = false },
+        new KaderAniCard { text = "Riskli yol: Ağır ceza.", amount = -100, goToCentralBank = false },
+        new KaderAniCard { text = "Merkez Bankası'na git!", amount = 0, goToCentralBank = true },
+    };
+
+    [Server]
+    private KaderAniCard GetRandomKaderAniCard()
+    {
+        return KaderAniCards[Random.Range(0, KaderAniCards.Length)];
+    }
+
+    [Server]
+    private int GetMerkezBankasiSpaceIndex()
+    {
+        if (BoardManager.Instance == null) return -1;
+        int n = boardSpaceCount > 0 ? boardSpaceCount : BoardManager.SpaceCount;
+        for (int i = 0; i < n; i++)
+        {
+            var info = BoardManager.Instance.GetSpaceInfo(i);
+            if (info != null && info.spaceType == SpaceInfo.SpaceType.MerkezBankasi)
+                return i;
+        }
+        return -1;
+    }
+
+    private static readonly GundemCard[] GundemCards =
+    {
+        new GundemCard { text = "Enflasyon: Tüm kira bedelleri %20 artar.", effect = (int)AgendaEffect.Inflation },
+        new GundemCard { text = "Çifte Şansızlık: Çift zar atanlar ilerleyemez.", effect = (int)AgendaEffect.DoubleMisfortune },
+        new GundemCard { text = "İstikrar: Özel etki yok.", effect = (int)AgendaEffect.None },
+    };
+
+    [Server]
+    private GundemCard GetRandomGundemCard()
+    {
+        return GundemCards[Random.Range(0, GundemCards.Length)];
+    }
+
+    [Server]
+    private int GetTotalRentValueForPlayer(int playerIndex)
+    {
+        if (PropertyManager.Instance == null || BoardManager.Instance == null) return 0;
+        int total = 0;
+        int n = boardSpaceCount > 0 ? boardSpaceCount : BoardManager.SpaceCount;
+        for (int i = 0; i < n; i++)
+        {
+            if (PropertyManager.Instance.GetOwner(i) != playerIndex) continue;
+            var info = BoardManager.Instance.GetSpaceInfo(i);
+            if (info == null) continue;
+            int baseRent = info.rent;
+            int rent = PropertyManager.Instance.GetRentWithHouses(i, baseRent);
+            total += rent;
+        }
+        return total;
+    }
+
+    [ClientRpc]
+    private void RpcShowEventPopup(string title, string cardText, string playerName, int amount)
+    {
+        LastCardTitle = title ?? "";
+        LastCardText = cardText ?? "";
+        LastCardPlayerName = playerName ?? "";
+        LastCardAmount = amount;
+        LastCardIsChance = false;
+        LastCardTime = Time.time;
+        string msg = amount != 0
+            ? $"{playerName}: {cardText} ({(amount > 0 ? "+" : "")}{amount} TL)"
+            : $"{playerName}: {cardText}";
+        LastNotification = msg;
+        LastNotificationTime = Time.time;
+        Debug.Log($"[OLAY] {title} | {playerName} | {cardText} | {(amount != 0 ? $"{(amount > 0 ? "+" : "")}{amount} TL" : "-")}");
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlayNotification();
+    }
+
     [ClientRpc]
     private void RpcShowCardNotification(bool isChance, string cardText, string playerName, int amount)
     {
+        LastCardTitle = isChance ? "ŞANS" : "KASA";
         LastCardText = cardText ?? "";
         LastCardPlayerName = playerName ?? "";
         LastCardAmount = amount;
@@ -871,15 +1139,25 @@ public class GameTurnManager : NetworkBehaviour
     }
 
     [Server]
-    private void ServerHandleBankruptcy(PlayerObject player)
+    public void ServerHandleBankruptcyWithReason(PlayerObject player, string reason)
+    {
+        ServerHandleBankruptcy(player, reason);
+    }
+
+    [Server]
+    private void ServerHandleBankruptcy(PlayerObject player, string reason = null)
     {
         if (player == null) return;
         if (bankruptPlayerIndices.Contains(player.playerIndex)) return;
         _jailTurns.Remove(player.playerIndex);
         bankruptPlayerIndices.Add(player.playerIndex);
         RpcPlayBankrupt();
-        RpcShowNotification($"{player.steamName} iflas etti!");
-        Debug.Log($"[Turn] P{player.playerIndex} iflas etti.");
+        string msg = !string.IsNullOrEmpty(reason)
+            ? $"{player.steamName} {reason} - iflas etti!"
+            : $"{player.steamName} iflas etti!";
+        RpcShowNotification(msg);
+        RpcShowEventPopup("İFLAS", msg, player.steamName, 0);
+        Debug.Log($"[Turn] P{player.playerIndex} iflas etti: " + msg);
 
         var remaining = GetOrderedPlayers();
         if (isTeamGame && remaining.Count > 0)
@@ -947,10 +1225,11 @@ public class GameTurnManager : NetworkBehaviour
         currentTurnPlayerIndex = players[nextPos].playerIndex;
         turnNumber++;
         _turnStartNetworkTime = NetworkTime.time;
+        _turnStartTime = Time.time;
 
         var nextPlayer = GetPlayerByIndex(currentTurnPlayerIndex);
         if (nextPlayer != null && nextPlayer.isBot && !isRolling)
-            StartCoroutine(BotTurnAfterDelay(nextPlayer, 1.5f));
+            StartCoroutine(BotTurnAfterDelay(nextPlayer, minTurnStartDelay));
     }
 
     [Server]
@@ -1005,6 +1284,7 @@ public class GameTurnManager : NetworkBehaviour
     {
         yield return new WaitForSeconds(delay);
         if (bot == null || !bot.isBot) yield break;
+        if (winnerPlayerIndex >= 0) yield break;
 
         // Once onceki zar + hareket + panel islemleri bitene kadar bekle (max ~8 sn)
         float timeout = Time.time + 8f;
@@ -1014,7 +1294,7 @@ public class GameTurnManager : NetworkBehaviour
 
         yield return new WaitForSeconds(0.2f);
         if (bot == null || !bot.isBot) yield break;
-        if (currentTurnPlayerIndex != bot.playerIndex || isRolling) yield break;
+        if (winnerPlayerIndex >= 0 || currentTurnPlayerIndex != bot.playerIndex || isRolling) yield break;
         ServerTryRoll(bot);
     }
 

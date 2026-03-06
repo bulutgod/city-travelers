@@ -1,0 +1,16 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:VisualElement name="MainMenuPanel" style="flex-grow: 1;">
+        <ui:Button text="Button" name="HostButton" />
+        <ui:Button text="Button" name="QuitButton" />
+        <ui:Button text="Button" name="SettingsButton" />
+        <ui:Button text="Button" name="MatchmakingButton" />
+    </ui:VisualElement>
+    <ui:VisualElement name="LobbyPanel" style="flex-grow: 1;">
+        <ui:Button text="Button" name="DicePickButton" />
+        <ui:Button text="Button" name="CopyIDButton" />
+        <ui:Button text="Button" name="StartGameButton" />
+        <ui:Button text="Button" name="ReadyButton" />
+        <ui:Button text="Button" name="LeaveButton" />
+        <ui:Button text="Button" name="2v2TeamToggle" />
+    </ui:VisualElement>
+</ui:UXML>

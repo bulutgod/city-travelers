@@ -342,10 +342,11 @@ public class LobbyUINew : MonoBehaviour
             }
         }
 
-        // Host kontrolü: start ve bot ekle butonları sadece host'ta görünür
+        // Host kontrolü: start, bot ekle ve 2v2 mod butonları sadece host'ta görünür
         bool isHost = NetworkServer.active;
         if (startGameButton) startGameButton.gameObject.SetActive(isHost);
         if (addBotButton) addBotButton.gameObject.SetActive(isHost);
+        if (teamModeToggle) teamModeToggle.gameObject.SetActive(isHost);
         if (readyButton) readyButton.gameObject.SetActive(true);
 
         // Karakter ok butonlar� zaten PlayerCardUI i�inde y�netiliyor

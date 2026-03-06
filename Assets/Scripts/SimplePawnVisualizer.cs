@@ -80,6 +80,8 @@ public class SimplePawnVisualizer : MonoBehaviour
         foreach (var player in players)
         {
             if (player == null) continue;
+            if (GameTurnManager.Instance != null && GameTurnManager.Instance.bankruptPlayerIndices.Contains(player.playerIndex))
+                continue;
             uint id = player.netId;
             aliveNetIds.Add(id);
 
@@ -126,7 +128,9 @@ public class SimplePawnVisualizer : MonoBehaviour
         var toRemove = new List<uint>();
         foreach (var kv in _pawns)
         {
-            if (!aliveNetIds.Contains(kv.Key))
+            if (!aliveNetIds.Contains(kv.Key) ||
+                (GameTurnManager.Instance != null && kv.Value?.Player != null &&
+                 GameTurnManager.Instance.bankruptPlayerIndices.Contains(kv.Value.Player.playerIndex)))
             {
                 if (kv.Value?.Root != null) Destroy(kv.Value.Root.gameObject);
                 toRemove.Add(kv.Key);

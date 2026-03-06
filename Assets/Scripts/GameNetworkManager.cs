@@ -383,19 +383,23 @@ public class GameNetworkManager : NetworkManager
 
                     if (steamId != 0 && !voluntary)
                     {
-                        _disconnectedStates[steamId] = new PersistedPlayerState
+                        bool gameOver = GameTurnManager.Instance != null && GameTurnManager.Instance.winnerPlayerIndex >= 0;
+                        if (!gameOver)
                         {
-                            playerIndex = player.playerIndex,
-                            currentSpaceIndex = player.currentSpaceIndex,
-                            selectedCharacterIndex = player.selectedCharacterIndex,
-                            selectedDiceIndex = player.selectedDiceIndex,
-                            money = player.money,
-                            disconnectedAt = Time.unscaledTime,
-                            steamName = player.steamName,
-                            hasPassedStart = player.hasPassedStart,
-                            isInJail = player.isInJail
-                        };
-                        StartCoroutine(SpawnBotAfterDisconnect(steamId, player));
+                            _disconnectedStates[steamId] = new PersistedPlayerState
+                            {
+                                playerIndex = player.playerIndex,
+                                currentSpaceIndex = player.currentSpaceIndex,
+                                selectedCharacterIndex = player.selectedCharacterIndex,
+                                selectedDiceIndex = player.selectedDiceIndex,
+                                money = player.money,
+                                disconnectedAt = Time.unscaledTime,
+                                steamName = player.steamName,
+                                hasPassedStart = player.hasPassedStart,
+                                isInJail = player.isInJail
+                            };
+                            StartCoroutine(SpawnBotAfterDisconnect(steamId, player));
+                        }
                     }
 
                     _connectedPlayers.Remove(player);

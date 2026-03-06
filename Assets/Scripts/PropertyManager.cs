@@ -107,14 +107,55 @@ public class PropertyManager : NetworkBehaviour
     public bool HasHotel(int spaceIndex) => GetHouseCount(spaceIndex) >= 5;
 
     /// <summary>
-    /// Ev/otel sayısına göre kira: baseRent * 2^houseCount.
-    /// 0=1x, 1=2x, 2=4x, 3=8x, 4=16x, 5(otel)=32x.
+    /// Kira hesapla: Normal için ev sayısına göre, Havalimanı için sahibin havalimanı sayısına göre (2^n).
+    /// Normal: 0=1x, 1=2x, 2=4x, 3=8x, 4=16x, 5(otel)=32x.
+    /// Havalimanı: Her havalimanı kira 2 katına çıkar (sahibin toplam havalimanı sayısı).
     /// </summary>
     public int GetRentWithHouses(int spaceIndex, int baseRent)
     {
-        int houses = GetHouseCount(spaceIndex);
-        int multiplier = 1 << houses;
-        return baseRent * multiplier;
+        int rent;
+        var info = GetSpaceInfo(spaceIndex);
+        if (info != null && info.spaceType == SpaceInfo.SpaceType.Havalimani)
+        {
+            int owner = GetOwner(spaceIndex);
+            if (owner < 0) rent = baseRent;
+            else
+            {
+                int airportCount = GetAirportCountForPlayer(owner);
+                int multiplier = 1 << airportCount; // 1 havalimanı=2x, 2=4x, 3=8x, 4=16x
+                rent = baseRent * multiplier;
+            }
+        }
+        else
+        {
+            int houses = GetHouseCount(spaceIndex);
+            int mult = 1 << houses;
+            rent = baseRent * mult;
+        }
+
+        // Gündem: Enflasyon - tüm kira bedelleri %20 artar
+        if (GameTurnManager.Instance != null && GameTurnManager.Instance.activeAgendaEffect == (int)AgendaEffect.Inflation)
+            rent = Mathf.RoundToInt(rent * 1.2f);
+
+        return rent;
+    }
+
+    /// <summary>
+    /// Oyuncunun sahip olduğu havalimanı sayısı.
+    /// </summary>
+    public int GetAirportCountForPlayer(int playerIndex)
+    {
+        if (boardManager == null) return 0;
+        int count = 0;
+        int n = BoardManager.SpaceCount;
+        for (int i = 0; i < n; i++)
+        {
+            if (GetOwner(i) != playerIndex) continue;
+            var info = boardManager.GetSpaceInfo(i);
+            if (info != null && info.spaceType == SpaceInfo.SpaceType.Havalimani)
+                count++;
+        }
+        return count;
     }
 
     private SpaceInfo GetSpaceInfo(int spaceIndex)
@@ -235,7 +276,7 @@ public class PropertyManager : NetworkBehaviour
             GameTurnManager.Instance?.ServerSendNotification($"{payer.steamName} {rent} TL kira ödedi ({owner.steamName})");
         }
         if (payer.money <= 0)
-            GameTurnManager.Instance?.ServerHandleBankruptcyPublic(payer);
+            GameTurnManager.Instance?.ServerHandleBankruptcyWithReason(payer, "kirayı ödeyemedi");
         FinishPendingAndAdvance(payer);
     }
 
@@ -295,10 +336,13 @@ public class PropertyManager : NetworkBehaviour
         if (owner < 0)
         {
             if (count < 1) { FinishPendingAndAdvance(player); return; }
+            // Havalimanında sadece satın alma, bina dikilmez
+            if (info.spaceType == SpaceInfo.SpaceType.Havalimani)
+                count = 1;
             int housePrice = info.housePrice > 0 ? info.housePrice : (info.purchasePrice / 2);
             int maxSeviye = player.hasPassedStart ? 4 : 3;
             count = Mathf.Clamp(count, 1, maxSeviye);
-            int evSayisi = count - 1;
+            int evSayisi = info.CanBuildHouses ? (count - 1) : 0;
             int evCost = evSayisi > 0 ? housePrice * evSayisi : 0;
             if (player.money < info.purchasePrice + evCost) { FinishPendingAndAdvance(player); return; }
 
@@ -317,9 +361,10 @@ public class PropertyManager : NetworkBehaviour
             GameTurnManager.Instance?.ServerSendNotification(msg);
             AdvanceTurnAfterAction(player);
         }
-        else if (owner == player.playerIndex ||
-                 (GameTurnManager.Instance != null && GameTurnManager.Instance.isTeamGame &&
-                  GameTurnManager.Instance.AreSameTeam(owner, player.playerIndex)))
+        else if ((owner == player.playerIndex ||
+                  (GameTurnManager.Instance != null && GameTurnManager.Instance.isTeamGame &&
+                   GameTurnManager.Instance.AreSameTeam(owner, player.playerIndex))) &&
+                 info.CanBuildHouses)
         {
             int currentHouses = GetHouseCount(spaceIndex);
             int housePrice = info.housePrice > 0 ? info.housePrice : (info.purchasePrice / 2);

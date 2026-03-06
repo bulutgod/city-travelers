@@ -5,7 +5,7 @@ using UnityEngine;
 /// PropertyManager.spaceOwners ve spaceHouseCounts degistikce board uzerinde
 /// sahiplik sphere'i ve ev kupleri olusturur.
 /// 0 ev = 1 sphere (sahiplik isareti), 1-4 ev = 1-4 kup.
-/// Sonradan sprite/model ile degistirilecek placeholder.
+/// Build'de renk icin MaterialPropertyBlock kullanilir (material.color bazen build'de calismaz).
 /// </summary>
 public class HouseVisualizer : MonoBehaviour
 {
@@ -87,6 +87,11 @@ public class HouseVisualizer : MonoBehaviour
         Transform spaceTf = boardManager.GetSpaceTransform(spaceIndex);
         if (spaceTf == null) return;
 
+        // Havalimanlarında bina dikilmez - sadece sahiplik göstergesi
+        var info = boardManager != null ? boardManager.GetSpaceInfo(spaceIndex) : null;
+        bool isAirport = info != null && info.spaceType == SpaceInfo.SpaceType.Havalimani;
+        if (isAirport) houseCount = 0;
+
         Color ownerColor = ColorByPlayerIndex(ownerIndex);
         var list = new List<GameObject>();
 
@@ -110,10 +115,7 @@ public class HouseVisualizer : MonoBehaviour
             var col = sphere.GetComponent<Collider>();
             if (col != null) col.enabled = false;
 
-            var rend = sphere.GetComponent<Renderer>();
-            if (rend != null && rend.material != null)
-                rend.material.color = ownerColor;
-
+            ApplyColorToRenderer(sphere.GetComponent<Renderer>(), ownerColor);
             list.Add(sphere);
         }
         else if (houseCount >= 5)
@@ -129,10 +131,7 @@ public class HouseVisualizer : MonoBehaviour
             var col = hotel.GetComponent<Collider>();
             if (col != null) col.enabled = false;
 
-            var rend = hotel.GetComponent<Renderer>();
-            if (rend != null && rend.material != null)
-                rend.material.color = ownerColor;
-
+            ApplyColorToRenderer(hotel.GetComponent<Renderer>(), ownerColor);
             list.Add(hotel);
         }
         else
@@ -152,10 +151,7 @@ public class HouseVisualizer : MonoBehaviour
                 var col = cube.GetComponent<Collider>();
                 if (col != null) col.enabled = false;
 
-                var rend = cube.GetComponent<Renderer>();
-                if (rend != null && rend.material != null)
-                    rend.material.color = ownerColor;
-
+                ApplyColorToRenderer(cube.GetComponent<Renderer>(), ownerColor);
                 list.Add(cube);
             }
         }
@@ -187,6 +183,28 @@ public class HouseVisualizer : MonoBehaviour
         if (playerIndex < 0) return Color.gray;
         int i = Mathf.Abs(playerIndex) % Palette.Length;
         return Palette[i];
+    }
+
+    /// <summary>
+    /// Build'de gorunur olmasi icin: default material kopyalanir, renk verilir.
+    /// Golge kapatilir - bazi build'lerde sadece golge gorunup bina gorunmuyordu.
+    /// </summary>
+    private static void ApplyColorToRenderer(Renderer rend, Color color)
+    {
+        if (rend == null) return;
+        rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        rend.receiveShadows = false;
+        try
+        {
+            var copy = new Material(rend.sharedMaterial);
+            if (copy.HasProperty("_Color"))
+                copy.color = color;
+            rend.sharedMaterial = copy;
+        }
+        catch
+        {
+            rend.material.color = color;
+        }
     }
 
     private void OnDestroy()

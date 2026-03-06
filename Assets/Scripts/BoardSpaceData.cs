@@ -7,7 +7,8 @@ using UnityEngine;
 [System.Serializable]
 public class SpaceInfo
 {
-    [Tooltip("Kare adi (örn. Baslangic, Vergi, Sokak adi)")]
+    [Tooltip("Kare adi. Alt satir icin \\n kullanin (örn. Nice Patra\\nHavalimani).")]
+    [TextArea(2, 4)]
     public string displayName = "";
 
     [Tooltip("Kare rengi (placeholder kupunun rengi)")]
@@ -32,22 +33,27 @@ public class SpaceInfo
 
     public enum SpaceType
     {
-        Normal,
-        Start,      // Baslangic / Go
-        Chance,     // Sans karti
-        Community,  // Kasa
-        Tax,        // Vergi
-        Jail,       // Hapishane / Ziyaret
-        FreeParking,
-        GoToJail,
-        Railway,
-        Utility
+        Normal,         // Satın alınabilir mülk (ev dikilebilir)
+        Start,          // Başlangıç / Go
+        KaderAni,       // Kart çekme: güvenli yol veya riskli yol (zar)
+        MerkezBankasi,  // Kumar/Küresel Fon'dan biriken para burada, gelen oyuncu alır
+        Kumar,          // Zar at: 8+ ise 5x nakit, 8- ise 10x merkez bankasına öde
+        KureselFon,     // Sahip olunan yerlerin kira değerinin %20'si merkez bankasına
+        Havalimani,     // Satın alınabilir, bina dikilmez, her havalimanı kira 2 katına çıkar
+        Gundem,         // Kart çek: etkisi bir sonraki Gündem'e kadar geçerli
+        Jail,           // Hapishane / Ziyaret
+        GoToJail        // Hapishaneye git
     }
 
     /// <summary>
-    /// Satın alınabilir mülk mü? (Normal tip + fiyat > 0)
+    /// Satın alınabilir mülk mü? (Normal veya Havalimani + fiyat > 0)
     /// </summary>
-    public bool IsPurchasable => spaceType == SpaceType.Normal && purchasePrice > 0;
+    public bool IsPurchasable => (spaceType == SpaceType.Normal || spaceType == SpaceType.Havalimani) && purchasePrice > 0;
+
+    /// <summary>
+    /// Bina (ev/otel) dikilebilir mi? Havalimanlarında dikilmez.
+    /// </summary>
+    public bool CanBuildHouses => spaceType == SpaceType.Normal && purchasePrice > 0;
 }
 
 /// <summary>
