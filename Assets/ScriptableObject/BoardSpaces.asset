@@ -25,7 +25,7 @@ MonoBehaviour:
     color: {r: 0.6392157, g: 0.7254902, b: 0.79607844, a: 1}
     spaceType: 0
     purchasePrice: 60
-    rent: 400
+    rent: 40
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -41,7 +41,7 @@ MonoBehaviour:
     color: {r: 0.90588236, g: 0.20784314, b: 0.9019608, a: 0}
     spaceType: 0
     purchasePrice: 100
-    rent: 600
+    rent: 50
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -57,7 +57,7 @@ MonoBehaviour:
     color: {r: 0.745283, g: 0.65016824, b: 0.24959952, a: 0}
     spaceType: 6
     purchasePrice: 60
-    rent: 400
+    rent: 60
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -65,7 +65,7 @@ MonoBehaviour:
     color: {r: 0.74509805, g: 0.6509804, b: 0.2509804, a: 1}
     spaceType: 0
     purchasePrice: 80
-    rent: 700
+    rent: 70
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -73,7 +73,7 @@ MonoBehaviour:
     color: {r: 0.74509805, g: 0.6509804, b: 0.2509804, a: 1}
     spaceType: 0
     purchasePrice: 60
-    rent: 400
+    rent: 40
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -81,7 +81,7 @@ MonoBehaviour:
     color: {r: 0.6792453, g: 0.1505874, b: 0.6033439, a: 1}
     spaceType: 0
     purchasePrice: 100
-    rent: 600
+    rent: 50
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -97,7 +97,7 @@ MonoBehaviour:
     color: {r: 0.68235296, g: 0.15294118, b: 0.6039216, a: 1}
     spaceType: 0
     purchasePrice: 80
-    rent: 400
+    rent: 40
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -105,7 +105,7 @@ MonoBehaviour:
     color: {r: 0.9245283, g: 0.039248828, b: 0.039248828, a: 1}
     spaceType: 7
     purchasePrice: 100
-    rent: 500
+    rent: 50
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -113,7 +113,7 @@ MonoBehaviour:
     color: {r: 0.9254902, g: 0.043137256, b: 0.043137256, a: 1}
     spaceType: 0
     purchasePrice: 80
-    rent: 400
+    rent: 40
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -121,7 +121,7 @@ MonoBehaviour:
     color: {r: 0.9254902, g: 0.043137256, b: 0.043137256, a: 1}
     spaceType: 0
     purchasePrice: 90
-    rent: 600
+    rent: 40
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -129,7 +129,7 @@ MonoBehaviour:
     color: {r: 0.12646852, g: 0.1583888, b: 0.9245283, a: 1}
     spaceType: 6
     purchasePrice: 80
-    rent: 500
+    rent: 50
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -137,7 +137,7 @@ MonoBehaviour:
     color: {r: 0.12941177, g: 0.16078432, b: 0.9254902, a: 1}
     spaceType: 0
     purchasePrice: 70
-    rent: 400
+    rent: 40
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -153,7 +153,7 @@ MonoBehaviour:
     color: {r: 0.10881342, g: 0.9528302, b: 0.03146139, a: 1}
     spaceType: 0
     purchasePrice: 100
-    rent: 800
+    rent: 80
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -161,7 +161,7 @@ MonoBehaviour:
     color: {r: 0.10980392, g: 0.9529412, b: 0.03529412, a: 1}
     spaceType: 0
     purchasePrice: 80
-    rent: 400
+    rent: 40
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -185,7 +185,7 @@ MonoBehaviour:
     color: {r: 1, g: 0.5647059, b: 0, a: 1}
     spaceType: 0
     purchasePrice: 90
-    rent: 500
+    rent: 50
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -193,7 +193,7 @@ MonoBehaviour:
     color: {r: 1, g: 0.5647059, b: 0, a: 1}
     spaceType: 0
     purchasePrice: 40
-    rent: 200
+    rent: 20
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -201,7 +201,7 @@ MonoBehaviour:
     color: {r: 0.69239354, g: 0.9433962, b: 0, a: 1}
     spaceType: 0
     purchasePrice: 70
-    rent: 400
+    rent: 40
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -209,7 +209,7 @@ MonoBehaviour:
     color: {r: 0.69411767, g: 0.94509804, b: 0, a: 1}
     spaceType: 6
     purchasePrice: 50
-    rent: 300
+    rent: 30
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -217,7 +217,7 @@ MonoBehaviour:
     color: {r: 0.69411767, g: 0.94509804, b: 0, a: 1}
     spaceType: 0
     purchasePrice: 70
-    rent: 500
+    rent: 50
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -225,7 +225,7 @@ MonoBehaviour:
     color: {r: 0.4811321, g: 0.4516287, b: 0.4516287, a: 1}
     spaceType: 0
     purchasePrice: 80
-    rent: 800
+    rent: 60
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -233,7 +233,7 @@ MonoBehaviour:
     color: {r: 0.48235294, g: 0.45490196, b: 0.45490196, a: 1}
     spaceType: 0
     purchasePrice: 100
-    rent: 1000
+    rent: 50
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -257,7 +257,7 @@ MonoBehaviour:
     color: {r: 0.44705883, g: 0.21568628, b: 0, a: 1}
     spaceType: 0
     purchasePrice: 90
-    rent: 900
+    rent: 60
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -273,7 +273,7 @@ MonoBehaviour:
     color: {r: 0, g: 0.7529412, b: 0.9529412, a: 1}
     spaceType: 0
     purchasePrice: 60
-    rent: 600
+    rent: 40
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -281,7 +281,7 @@ MonoBehaviour:
     color: {r: 0, g: 0.7529412, b: 0.9529412, a: 1}
     spaceType: 6
     purchasePrice: 40
-    rent: 400
+    rent: 30
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -297,7 +297,7 @@ MonoBehaviour:
     color: {r: 0.9372549, g: 0, b: 0.8901961, a: 1}
     spaceType: 0
     purchasePrice: 80
-    rent: 800
+    rent: 60
     taxAmount: 0
     startBonus: 0
     housePrice: 0
@@ -313,7 +313,7 @@ MonoBehaviour:
     color: {r: 0.9372549, g: 0, b: 0.8901961, a: 1}
     spaceType: 0
     purchasePrice: 40
-    rent: 400
+    rent: 40
     taxAmount: 0
     startBonus: 0
     housePrice: 0
