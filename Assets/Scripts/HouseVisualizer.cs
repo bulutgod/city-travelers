@@ -3,18 +3,34 @@ using UnityEngine;
 
 /// <summary>
 /// PropertyManager.spaceOwners ve spaceHouseCounts degistikce board uzerinde
-/// sahiplik sphere'i ve ev kupleri olusturur.
-/// 0 ev = 1 sphere (sahiplik isareti), 1-4 ev = 1-4 kup.
-/// Build'de renk icin MaterialPropertyBlock kullanilir (material.color bazen build'de calismaz).
+/// sahiplik/yer, ev ve otel gosterir. FBX prefab atanirsa onlar, atanmazsa kure/kup/silindir kullanilir.
+/// 0 ev = yer, 1-3 ev = ev seviyesi 1/2/3, 4 ev = 3 ile aynı model, 5 = otel. Toplam 5 bina modeli.
 /// </summary>
 public class HouseVisualizer : MonoBehaviour
 {
     [SerializeField] private BoardManager boardManager;
+    [Header("Primitive boyutlari (prefab atanmazsa kullanilir)")]
     [SerializeField] private float cubeSize = 0.28f;
     [SerializeField] private float sphereSize = 0.22f;
     [SerializeField] private float spacing = 0.32f;
     [Tooltip("Kare merkezinden dis kenara dogru uzaklik.")]
     [SerializeField] private float edgeOffset = 0.55f;
+
+    [Header("Bina modelleri (FBX) - 1 yer, 3 ev seviyesi, 1 otel (toplam 5 model)")]
+    [Tooltip("0 ev: yer / sahiplik (en kucuk). Atanmazsa kure kullanilir.")]
+    [SerializeField] private GameObject ownerOnlyPrefab;
+    [Tooltip("1 ev. Atanmazsa kup.")]
+    [SerializeField] private GameObject houseLevel1Prefab;
+    [Tooltip("2 ev. Atanmazsa 2 kup.")]
+    [SerializeField] private GameObject houseLevel2Prefab;
+    [Tooltip("3 ev ve 4 ev (ayni model). Atanmazsa 3/4 kup.")]
+    [SerializeField] private GameObject houseLevel3Prefab;
+    [Tooltip("Otel (5. seviye). Atanmazsa silindir.")]
+    [SerializeField] private GameObject hotelPrefab;
+    [Tooltip("Prefab modellerinin ortak olcegi. Tahta uzerine sigacak sekilde ayarla.")]
+    [SerializeField] private float buildingModelScale = 0.4f;
+    [Tooltip("Prefab kullanilirken sahip rengini modele uygula (tek renk).")]
+    [SerializeField] private bool tintPrefabWithOwnerColor = false;
 
     private static readonly Color[] Palette =
     {
@@ -103,56 +119,95 @@ public class HouseVisualizer : MonoBehaviour
         Vector3 right = Vector3.Cross(Vector3.up, outward).normalized;
         float topY = GetSpaceTopY(spaceTf);
 
+        Vector3 basePos = center - outward * edgeOffset;
+        Quaternion rot = Quaternion.LookRotation(outward, Vector3.up);
+
         if (houseCount <= 0)
         {
-            var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            sphere.name = $"Owner_S{spaceIndex}";
-            Vector3 pos = center - outward * edgeOffset;
-            pos.y = topY + sphereSize * 0.5f;
-            sphere.transform.position = pos;
-            sphere.transform.localScale = Vector3.one * sphereSize;
-
-            var col = sphere.GetComponent<Collider>();
-            if (col != null) col.enabled = false;
-
-            ApplyColorToRenderer(sphere.GetComponent<Renderer>(), ownerColor);
-            list.Add(sphere);
+            if (ownerOnlyPrefab != null)
+            {
+                var go = Instantiate(ownerOnlyPrefab, basePos, rot);
+                go.name = $"Owner_S{spaceIndex}";
+                go.transform.position = new Vector3(basePos.x, topY, basePos.z);
+                go.transform.rotation = rot;
+                go.transform.localScale = Vector3.one * buildingModelScale;
+                DisableColliders(go);
+                if (tintPrefabWithOwnerColor) ApplyColorToAllRenderers(go, ownerColor);
+                list.Add(go);
+            }
+            else
+            {
+                var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                sphere.name = $"Owner_S{spaceIndex}";
+                Vector3 pos = basePos;
+                pos.y = topY + sphereSize * 0.5f;
+                sphere.transform.position = pos;
+                sphere.transform.localScale = Vector3.one * sphereSize;
+                var col = sphere.GetComponent<Collider>();
+                if (col != null) col.enabled = false;
+                ApplyColorToRenderer(sphere.GetComponent<Renderer>(), ownerColor);
+                list.Add(sphere);
+            }
         }
         else if (houseCount >= 5)
         {
-            var hotel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            hotel.name = $"Hotel_S{spaceIndex}";
-            Vector3 pos = center - outward * edgeOffset;
-            float hotelH = cubeSize * 1.5f;
-            pos.y = topY + hotelH * 0.5f;
-            hotel.transform.position = pos;
-            hotel.transform.localScale = new Vector3(cubeSize * 1.2f, hotelH * 0.5f, cubeSize * 1.2f);
-
-            var col = hotel.GetComponent<Collider>();
-            if (col != null) col.enabled = false;
-
-            ApplyColorToRenderer(hotel.GetComponent<Renderer>(), ownerColor);
-            list.Add(hotel);
+            if (hotelPrefab != null)
+            {
+                var go = Instantiate(hotelPrefab, basePos, rot);
+                go.name = $"Hotel_S{spaceIndex}";
+                go.transform.position = new Vector3(basePos.x, topY, basePos.z);
+                go.transform.rotation = rot;
+                go.transform.localScale = Vector3.one * buildingModelScale;
+                DisableColliders(go);
+                if (tintPrefabWithOwnerColor) ApplyColorToAllRenderers(go, ownerColor);
+                list.Add(go);
+            }
+            else
+            {
+                var hotel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                hotel.name = $"Hotel_S{spaceIndex}";
+                float hotelH = cubeSize * 1.5f;
+                Vector3 pos = basePos;
+                pos.y = topY + hotelH * 0.5f;
+                hotel.transform.position = pos;
+                hotel.transform.localScale = new Vector3(cubeSize * 1.2f, hotelH * 0.5f, cubeSize * 1.2f);
+                var col = hotel.GetComponent<Collider>();
+                if (col != null) col.enabled = false;
+                ApplyColorToRenderer(hotel.GetComponent<Renderer>(), ownerColor);
+                list.Add(hotel);
+            }
         }
         else
         {
-            float totalWidth = (houseCount - 1) * spacing;
-            float startX = -totalWidth * 0.5f;
-            Vector3 basePos = center - outward * edgeOffset;
-            basePos.y = topY + cubeSize * 0.5f;
-
-            for (int i = 0; i < houseCount; i++)
+            // 1-3 ev = level 1/2/3, 4 ev = level 3 (aynı model)
+            GameObject prefab = houseCount == 1 ? houseLevel1Prefab : houseCount == 2 ? houseLevel2Prefab : houseLevel3Prefab;
+            if (prefab != null)
             {
-                var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                cube.name = $"House_S{spaceIndex}_{i}";
-                cube.transform.position = basePos + right * (startX + i * spacing);
-                cube.transform.localScale = new Vector3(cubeSize, cubeSize, cubeSize);
-
-                var col = cube.GetComponent<Collider>();
-                if (col != null) col.enabled = false;
-
-                ApplyColorToRenderer(cube.GetComponent<Renderer>(), ownerColor);
-                list.Add(cube);
+                var go = Instantiate(prefab, basePos, rot);
+                go.name = $"House_S{spaceIndex}";
+                go.transform.position = new Vector3(basePos.x, topY, basePos.z);
+                go.transform.rotation = rot;
+                go.transform.localScale = Vector3.one * buildingModelScale;
+                DisableColliders(go);
+                if (tintPrefabWithOwnerColor) ApplyColorToAllRenderers(go, ownerColor);
+                list.Add(go);
+            }
+            else
+            {
+                float totalWidth = (houseCount - 1) * spacing;
+                float startX = -totalWidth * 0.5f;
+                basePos.y = topY + cubeSize * 0.5f;
+                for (int i = 0; i < houseCount; i++)
+                {
+                    var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    cube.name = $"House_S{spaceIndex}_{i}";
+                    cube.transform.position = basePos + right * (startX + i * spacing);
+                    cube.transform.localScale = new Vector3(cubeSize, cubeSize, cubeSize);
+                    var col = cube.GetComponent<Collider>();
+                    if (col != null) col.enabled = false;
+                    ApplyColorToRenderer(cube.GetComponent<Renderer>(), ownerColor);
+                    list.Add(cube);
+                }
             }
         }
 
@@ -183,6 +238,18 @@ public class HouseVisualizer : MonoBehaviour
         if (playerIndex < 0) return Color.gray;
         int i = Mathf.Abs(playerIndex) % Palette.Length;
         return Palette[i];
+    }
+
+    private static void DisableColliders(GameObject go)
+    {
+        foreach (var col in go.GetComponentsInChildren<Collider>())
+            col.enabled = false;
+    }
+
+    private static void ApplyColorToAllRenderers(GameObject go, Color color)
+    {
+        foreach (var rend in go.GetComponentsInChildren<Renderer>())
+            ApplyColorToRenderer(rend, color);
     }
 
     /// <summary>

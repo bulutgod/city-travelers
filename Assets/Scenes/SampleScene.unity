@@ -3704,7 +3704,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 58.4, y: -27}
-  m_SizeDelta: {x: 527.1099, y: 230.884}
+  m_SizeDelta: {x: 425, y: 200}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &964213127
 MonoBehaviour:
@@ -4840,7 +4840,7 @@ MonoBehaviour:
     isUnlocked: 1
     coinPrice: 0
   - label: "MAV\u0130"
-    diceSprite: {fileID: 21300000, guid: 22c514be6ad9e4339ae29cbf024bcaf8, type: 3}
+    diceSprite: {fileID: 21300000, guid: fb8f694ca64ed29408b3b65975c5733d, type: 3}
     isUnlocked: 1
     coinPrice: 0
   - label: SARI
@@ -4848,15 +4848,15 @@ MonoBehaviour:
     isUnlocked: 1
     coinPrice: 0
   - label: KIRMIZI
-    diceSprite: {fileID: 21300000, guid: b2b2565eae25c404386067f51719162d, type: 3}
+    diceSprite: {fileID: 21300000, guid: f36a1c63850f93d42af66ca357eabd20, type: 3}
     isUnlocked: 1
     coinPrice: 0
   - label: "YE\u015E\u0130L"
-    diceSprite: {fileID: 21300000, guid: a145bf41c56a746d48e66d101fc39f0c, type: 3}
+    diceSprite: {fileID: 21300000, guid: a1df6045ec63b3d489ae90935dea7368, type: 3}
     isUnlocked: 1
     coinPrice: 0
   - label: KOYU PEMBE
-    diceSprite: {fileID: 21300000, guid: 466691cac51c64352ace6f5286f60ed2, type: 3}
+    diceSprite: {fileID: 21300000, guid: a83783816f98bd44a977c37989a439c1, type: 3}
     isUnlocked: 1
     coinPrice: 0
 --- !u!1001 &1429511034
@@ -4950,7 +4950,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 141, y: 18.401}
+  m_AnchoredPosition: {x: 129.2, y: 11.7}
   m_SizeDelta: {x: 294.9066, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1445535796
@@ -5000,8 +5000,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 36
-  m_fontSizeBase: 36
+  m_fontSize: 30
+  m_fontSizeBase: 30
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -5038,7 +5038,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 0, y: 0, z: -14.467567, w: 0}
+  m_margin: {x: 0, y: 0, z: 17.50341, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -5606,8 +5606,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 117.49589, y: -93.8}
-  m_SizeDelta: {x: 168.9168, y: 137.2}
+  m_AnchoredPosition: {x: 147.3, y: -93.8}
+  m_SizeDelta: {x: 150, y: 120}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1586965322
 MonoBehaviour:

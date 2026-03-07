@@ -3,18 +3,22 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Ana menü sol üst (veya herhangi bir) avatar RawImage'a maske uygular.
-/// Inspector'dan Corner Radius'u deneyerek açık yeşil alanı tam doldurana getirebilirsin.
-/// - 0.5 = daire (köşelerde yeşil bant kalır)
-/// - 0.01'e yakın = yuvarlatılmış dikdörtgen, açık yeşili tamamen doldurur
+/// Köşeli = maske yok (düz dikdörtgen). Yuvarlak/yuvarlatılmış istersen Köşeli'yi kapatıp Corner Radius ile ayarla.
 /// </summary>
 [RequireComponent(typeof(RawImage))]
 public class AvatarMaskConfig : MonoBehaviour
 {
-    [Tooltip("0.5 = daire, küçültünce görsel açık yeşil alanı tam doldurur. Deneyerek ayarla.")]
+    [Tooltip("Açık = avatar köşeli (düz dikdörtgen, maske yok). Kapalı = Corner Radius ile daire/yuvarlatılmış.")]
+    [SerializeField] private bool koseeli = true;
+
+    [Tooltip("Sadece Köşeli kapalıyken kullanılır. 0.5 = daire, küçük değer = yuvarlatılmış dikdörtgen.")]
     [Range(0.01f, 0.5f)]
     [SerializeField] private float cornerRadius = 0.15f;
 
-    /// <summary>Inspector'daki Corner Radius değeri (LobbyUINew bunu kullanır).</summary>
+    /// <summary>Inspector'daki Köşeli değeri.</summary>
+    public bool Koseeli => koseeli;
+
+    /// <summary>Inspector'daki Corner Radius değeri (Köşeli kapalıyken kullanılır).</summary>
     public float CornerRadius => cornerRadius;
 
     [Tooltip("Boş bırakırsan bu GameObject'teki RawImage kullanılır.")]
@@ -22,6 +26,7 @@ public class AvatarMaskConfig : MonoBehaviour
 
     private RawImage _rawImage;
     private float _lastAppliedRadius = -1f;
+    private bool _lastKoseeli = true;
 
     private void Awake()
     {
@@ -37,12 +42,12 @@ public class AvatarMaskConfig : MonoBehaviour
 
     private void OnValidate()
     {
-        if (Application.isPlaying && _rawImage != null && Mathf.Abs(_lastAppliedRadius - cornerRadius) > 0.001f)
+        if (Application.isPlaying && _rawImage != null && (Mathf.Abs(_lastAppliedRadius - cornerRadius) > 0.001f || _lastKoseeli != koseeli))
             ApplyMask();
     }
 
     /// <summary>
-    /// Maskeyi güncel cornerRadius ile uygular.
+    /// Maskeyi güncel ayarlarla uygular. Köşeli = maske yok, değilse cornerRadius kullanılır.
     /// </summary>
     public void ApplyMask()
     {
@@ -51,12 +56,16 @@ public class AvatarMaskConfig : MonoBehaviour
         if (targetImage == null) return;
 
         _rawImage = targetImage;
-        AvatarCircleMask.ApplyTo(targetImage, cornerRadius);
+        if (koseeli)
+            AvatarCircleMask.ApplyTo(targetImage, 0f);
+        else
+            AvatarCircleMask.ApplyTo(targetImage, cornerRadius);
         _lastAppliedRadius = cornerRadius;
+        _lastKoseeli = koseeli;
     }
 
     /// <summary>
-    /// Inspector'dan denemek için: Corner Radius değerini set et.
+    /// Inspector'dan denemek için: Corner Radius değerini set et (Köşeli kapalıyken).
     /// </summary>
     public void SetCornerRadius(float value)
     {

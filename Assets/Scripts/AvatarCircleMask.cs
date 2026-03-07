@@ -45,11 +45,16 @@ public static class AvatarCircleMask
     }
 
     /// <summary>
-    /// RawImage'a maske uygular. cornerRadius: 0.5 = daire, kucuk deger = acik yesili dolduran rounded rect.
+    /// RawImage'a maske uygular. cornerRadius: 0 = köşeli (maske yok), 0.5 = daire, 0.01–0.49 = yuvarlatılmış dikdörtgen.
     /// </summary>
     public static void ApplyTo(RawImage rawImage, float cornerRadius = 0.5f)
     {
         if (rawImage == null) return;
+        if (cornerRadius <= 0f)
+        {
+            rawImage.material = null;
+            return;
+        }
         var mat = GetOrCreateMaterial(rawImage, cornerRadius);
         if (mat != null)
             rawImage.material = mat;
