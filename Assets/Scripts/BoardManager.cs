@@ -361,8 +361,9 @@ public class BoardManager : MonoBehaviour
             // Isim metnine dokunma - kullanicinin enter/satir sonu ayarlari korunsun
             if (rentTmp != null && info != null && info.IsPurchasable)
             {
-                int rent = PropertyManager.Instance != null ? PropertyManager.Instance.GetRentWithHouses(i, info.rent) : info.rent;
-                rentTmp.text = $"{rent} TL";
+                int baseRent = GameEconomy.ScalePrice(info.rent);
+                int rent = PropertyManager.Instance != null ? PropertyManager.Instance.GetRentWithHouses(i, baseRent) : baseRent;
+                rentTmp.text = GameEconomy.FormatMoney(rent);
                 _rentLabels[i] = rentTmp;
             }
             _nameLabels[i] = nameTmp;
@@ -447,7 +448,7 @@ public class BoardManager : MonoBehaviour
                 rentGo.transform.localRotation = Quaternion.identity;
                 rentGo.transform.localScale = Vector3.one;
                 var rentTmp = rentGo.AddComponent<TextMeshPro>();
-                rentTmp.text = $"{info.rent} TL";
+                rentTmp.text = GameEconomy.FormatMoney(GameEconomy.ScalePrice(info.rent));
                 SetupLabelTmp(rentTmp, sizeDelta, fontSize);
                 _rentLabels[i] = rentTmp;
             }
@@ -500,8 +501,8 @@ public class BoardManager : MonoBehaviour
             if (_rentLabels[i] == null) continue;
             var info = boardSpaceData.GetSpace(i);
             if (info == null || !info.IsPurchasable) continue;
-            int rent = PropertyManager.Instance.GetRentWithHouses(i, info.rent);
-            _rentLabels[i].text = $"{rent} TL";
+            int rent = PropertyManager.Instance.GetRentWithHouses(i, GameEconomy.ScalePrice(info.rent));
+            _rentLabels[i].text = GameEconomy.FormatMoney(rent);
         }
     }
 
@@ -565,7 +566,7 @@ public class BoardManager : MonoBehaviour
                 ? info.displayName
                 : index.ToString();
             if (info != null && info.IsPurchasable && info.rent > 0)
-                label += $"\n{info.rent} TL";
+                label += $"\n{GameEconomy.FormatMoney(GameEconomy.ScalePrice(info.rent))}";
             CreateLabel(go.transform, label);
         }
 

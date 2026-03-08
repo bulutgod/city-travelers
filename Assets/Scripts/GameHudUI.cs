@@ -231,7 +231,7 @@ public class GameHudUI : MonoBehaviour
         _rollText = CreateText(canvasGo.transform, "RollText", firstPos + new Vector2(0, -spacing), "Last Roll: -", textSize, fontSize);
         _youText = CreateText(canvasGo.transform, "YouText", firstPos + new Vector2(0, -spacing * 2), "You: -", textSize, fontSize);
         _statusText = CreateText(canvasGo.transform, "StatusText", firstPos + new Vector2(0, -spacing * 3), "Status: -", textSize, fontSize);
-        _moneyText = CreateText(canvasGo.transform, "MoneyText", firstPos + new Vector2(0, -spacing * 4), "Para: 1500", textSize, fontSize);
+        _moneyText = CreateText(canvasGo.transform, "MoneyText", firstPos + new Vector2(0, -spacing * 4), "Para: " + GameEconomy.FormatMoney(GameEconomy.StartingMoney), textSize, fontSize);
         var summaryPos = C != null ? C.playerSummaryPos : new Vector2(12, -172);
         var summaryFontSize = C != null ? C.ScaledFontSize(C.playerSummaryFontSize) : 16;
         _playerSummaryText = CreateText(canvasGo.transform, "PlayerSummary", summaryPos, "", textSize, summaryFontSize);
@@ -1143,7 +1143,7 @@ public class GameHudUI : MonoBehaviour
         bottomHg.childControlHeight = true;
         bottomHg.childForceExpandWidth = false;
 
-        _buildPriceText = CreateText(bottomRow.transform, "Price", Vector2.zero, "0 TL");
+        _buildPriceText = CreateText(bottomRow.transform, "Price", Vector2.zero, GameEconomy.FormatMoney(0));
         _buildPriceText.rectTransform.sizeDelta = new Vector2(80, 28);
 
         var buildBuyGo = new GameObject("BuildBuyButton");
@@ -1276,13 +1276,12 @@ public class GameHudUI : MonoBehaviour
         if (spaceIndex < 0) return;
 
         var info = BoardManager.Instance.GetSpaceInfo(spaceIndex);
-        int baseRent = info != null ? info.rent : 0;
+        int baseRent = info != null ? GameEconomy.ScalePrice(info.rent) : 0;
         int rent = PropertyManager.Instance.GetRentWithHouses(spaceIndex, baseRent);
-        // Sahibinden satın alma fiyatı: kira*2; kira 0 ise purchasePrice kullan (veri eksikse 0 TL yerine anlamlı fiyat göster)
-        int buyPrice = (rent > 0) ? (rent * 2) : (info != null ? info.purchasePrice : 0);
+        int buyPrice = (rent > 0) ? (rent * 2) : (info != null ? GameEconomy.ScalePrice(info.purchasePrice) : 0);
         string spaceName = info != null && !string.IsNullOrWhiteSpace(info.displayName) ? info.displayName : $"Alan {spaceIndex}";
 
-        string msg = $"Kira ödendi: {rent} TL\n{spaceName} mülkünü {buyPrice} TL'ye satın almak ister misin?";
+        string msg = $"Kira ödendi: {GameEconomy.FormatMoney(rent)}\n{spaceName} mülkünü {GameEconomy.FormatMoney(buyPrice)} satın almak ister misin?";
         if (_rentOrBuyInfoText != null) _rentOrBuyInfoText.text = msg;
         if (_rentOrBuyInfoTextTMP != null) _rentOrBuyInfoTextTMP.text = msg;
 
@@ -1468,8 +1467,9 @@ public class GameHudUI : MonoBehaviour
         int spaceIndex = PropertyManager.Instance.pendingSpaceIndex;
         if (spaceIndex < 0) return;
         var info = BoardManager.Instance.GetSpaceInfo(spaceIndex);
-        int purchasePrice = info != null ? info.purchasePrice : 0;
-        int housePrice = info != null ? (info.housePrice > 0 ? info.housePrice : (info.purchasePrice / 2)) : 0;
+        int purchasePrice = info != null ? GameEconomy.ScalePrice(info.purchasePrice) : 0;
+        int housePriceDesign = info != null ? (info.housePrice > 0 ? info.housePrice : (info.purchasePrice / 2)) : 0;
+        int housePrice = GameEconomy.ScalePrice(housePriceDesign);
         int owner = PropertyManager.Instance.GetOwner(spaceIndex);
         bool isEmpty = owner < 0;
         int total;
@@ -1482,7 +1482,7 @@ public class GameHudUI : MonoBehaviour
         {
             total = housePrice * _selectedHouseCount;
         }
-        string priceStr = $"{total} TL";
+        string priceStr = GameEconomy.FormatMoney(total);
         if (_buildPriceText != null) _buildPriceText.text = priceStr;
         if (_buildPriceTextTMP != null) _buildPriceTextTMP.text = priceStr;
         bool canBuy = isEmpty ? (_selectedHouseCount >= 1 && _localPlayer.money >= total) : (_selectedHouseCount >= 1 && _localPlayer.money >= total);
@@ -1854,12 +1854,12 @@ public class GameHudUI : MonoBehaviour
                     _lastShownCardTime = cardTime;
                     _cardDismissed = false;
                     _cardFlipProgress = 0f;
+                    Debug.Log($"[OLAY UI] Popup gösteriliyor: {GameTurnManager.LastCardTitle} - {GameTurnManager.LastCardText}");
                 }
                 if ((Time.time - cardTime) < CardShowDuration && !_cardDismissed)
                 {
                     _cardPanel.transform.SetAsLastSibling();
                     _cardPanel.SetActive(true);
-                    Debug.Log($"[OLAY UI] Popup gösteriliyor: {GameTurnManager.LastCardTitle} - {GameTurnManager.LastCardText}");
                     string title = !string.IsNullOrEmpty(GameTurnManager.LastCardTitle)
                         ? GameTurnManager.LastCardTitle
                         : (GameTurnManager.LastCardIsChance ? "ŞANS" : "KASA");
@@ -1868,7 +1868,7 @@ public class GameHudUI : MonoBehaviour
                     if (_cardAmountText != null)
                     {
                         int amt = GameTurnManager.LastCardAmount;
-                        _cardAmountText.text = amt != 0 ? $"{(amt > 0 ? "+" : "")}{amt} TL" : "";
+                        _cardAmountText.text = amt != 0 ? $"{(amt > 0 ? "+" : "")}{GameEconomy.FormatMoney(amt)}" : "";
                         _cardAmountText.color = amt >= 0 ? new Color(0.1f, 0.5f, 0.2f, 1f) : new Color(0.7f, 0.2f, 0.2f, 1f);
                     }
                     if (_cardFlipProgress < 1f)
@@ -1921,7 +1921,7 @@ public class GameHudUI : MonoBehaviour
             if (_rollText != null) _rollText.text = "Last Roll: -";
             if (_youText != null) _youText.text = "You: -";
             if (_statusText != null) _statusText.text = "Durum: sistem hazirlaniyor...";
-            if (_moneyText != null) _moneyText.text = _localPlayer != null ? $"Para: {_localPlayer.money}" : "Para: -";
+            if (_moneyText != null) _moneyText.text = _localPlayer != null ? "Para: " + GameEconomy.FormatMoney(_localPlayer.money) : "Para: -";
             if (_rollButton != null) { _rollButton.gameObject.SetActive(false); _rollButton.interactable = false; }
             if (_rollButtonImage != null) _rollButtonImage.color = _buttonIdle;
             if (_rollButtonText != null) _rollButtonText.text = "ZAR BEKLE";
@@ -1988,7 +1988,7 @@ public class GameHudUI : MonoBehaviour
             else
                 _youText.text = $"You: P{_localPlayer.playerIndex} | Space: {_localPlayer.currentSpaceIndex}{jailSuffix}";
         }
-        if (_moneyText != null) _moneyText.text = $"Para: {_localPlayer.money}";
+        if (_moneyText != null) _moneyText.text = "Para: " + GameEconomy.FormatMoney(_localPlayer.money);
 
         bool hasPending = PropertyManager.Instance != null &&
             PropertyManager.Instance.pendingSpaceIndex >= 0 &&
@@ -2045,7 +2045,7 @@ public class GameHudUI : MonoBehaviour
             _jailPayButton.gameObject.SetActive(canShowJailPay && fee > 0);
             _jailPayButton.interactable = canPay;
             if (_jailPayButtonText != null)
-                _jailPayButtonText.text = fee > 0 ? $"Hapisten Çık (-{fee} TL)" : "Hapisten Çık";
+                _jailPayButtonText.text = fee > 0 ? $"Hapisten Çık (-{GameEconomy.FormatMoney(fee)})" : "Hapisten Çık";
         }
 
         if (turn.isRolling)
@@ -2055,7 +2055,7 @@ public class GameHudUI : MonoBehaviour
         else if (yourTurn && _localPlayer.isInJail)
         {
             int fee = GameTurnManager.Instance != null ? GameTurnManager.Instance.JailReleaseFee : 0;
-            string extra = fee > 0 ? $" | {fee} TL ödeyerek hemen çıkabilirsin." : "";
+            string extra = fee > 0 ? $" | {GameEconomy.FormatMoney(fee)} ödeyerek hemen çıkabilirsin." : "";
             if (_statusText != null) _statusText.text = "Durum: HAPİSTESİN - Çift zar at" + extra;
             if (_rollButtonText != null) _rollButtonText.text = "ZAR AT (HAPİS)";
             if (_rollButtonImage != null)
@@ -2225,7 +2225,7 @@ public class GameHudUI : MonoBehaviour
             string nameStr = string.IsNullOrWhiteSpace(p.steamName) ? $"P{p.playerIndex}" : (p.steamName.Length > 12 ? p.steamName.Substring(0, 10) + ".." : p.steamName);
             if (isTeamGame)
                 nameStr = $"Takım {p.teamIndex + 1} · " + nameStr;
-            string moneyStr = $"{p.money} TL";
+            string moneyStr = GameEconomy.FormatMoney(p.money);
             if (_playerCornerHuds[slot].nameText != null) _playerCornerHuds[slot].nameText.text = nameStr;
             else if (_playerCornerHuds[slot].nameTextTMP != null) _playerCornerHuds[slot].nameTextTMP.text = nameStr;
             if (_playerCornerHuds[slot].moneyText != null) _playerCornerHuds[slot].moneyText.text = moneyStr;
@@ -2263,9 +2263,9 @@ public class GameHudUI : MonoBehaviour
             string name = string.IsNullOrWhiteSpace(p.steamName) ? $"P{p.playerIndex}" : p.steamName;
             if (name.Length > 10) name = name.Substring(0, 8) + "..";
             if (isTeamGame)
-                parts.Add($"[T{p.teamIndex + 1}] {name}: {p.money} TL");
+                parts.Add($"[T{p.teamIndex + 1}] {name}: {GameEconomy.FormatMoney(p.money)}");
             else
-                parts.Add($"{name}: {p.money} TL");
+                parts.Add($"{name}: {GameEconomy.FormatMoney(p.money)}");
         }
         _playerSummaryText.text = string.Join(" | ", parts);
     }

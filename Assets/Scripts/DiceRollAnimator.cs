@@ -30,6 +30,10 @@ public class DiceRollAnimator : MonoBehaviour
     [Tooltip("Yere dustukten sonra sonucun gosterildigi sure (saniye).")]
     [SerializeField] private float showResultDuration = 1.5f;
 
+    [Header("Zar boyutu")]
+    [Tooltip("Zarlarin gorsel olcegi (1 = prefab varsayilani).")]
+    [SerializeField] [Min(0.01f)] private float diceSize = 1f;
+
     [Header("Zar yuzu rotasyonlari (Euler, 1-6)")]
     [Tooltip("Mesh child objedeyse buraya child adini yaz (ornegin 'Model'); bos birakilirsa root. Prefab'ta hangi objenin Rotation'unu ayarladiysan o kullanilir.")]
     [SerializeField] private string applyRotationToChild;
@@ -107,6 +111,7 @@ public class DiceRollAnimator : MonoBehaviour
 
         _dice1.go = Instantiate(dicePrefab, new Vector3(basePos.x - diceSpacing * 0.5f, startY, basePos.z), Quaternion.identity, _parent);
         _dice1.go.name = "DiceRollInstance1";
+        _dice1.go.transform.localScale = Vector3.one * diceSize;
         _dice1.startY = startY;
         _dice1.groundY = groundY;
         _dice1.fallSpeed = fallSpeed;
@@ -116,6 +121,7 @@ public class DiceRollAnimator : MonoBehaviour
 
         _dice2.go = Instantiate(dicePrefab, new Vector3(basePos.x + diceSpacing * 0.5f, startY, basePos.z), Quaternion.identity, _parent);
         _dice2.go.name = "DiceRollInstance2";
+        _dice2.go.transform.localScale = Vector3.one * diceSize;
         _dice2.startY = startY;
         _dice2.groundY = groundY;
         _dice2.fallSpeed = fallSpeed;

@@ -26,7 +26,7 @@ public class PlayerObject : NetworkBehaviour
     public int currentSpaceIndex = 0;
 
     [SyncVar(hook = nameof(OnMoneyChanged))]
-    public int money = 1500;
+    public int money = 1500; // Prefab varsayılanı; sunucu tarafında GameNetworkManager/GameTurnManager ile GameEconomy.StartingMoney yapılır.
 
     [SyncVar] public bool isBot = false;
 

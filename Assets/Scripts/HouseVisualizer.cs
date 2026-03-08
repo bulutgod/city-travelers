@@ -248,13 +248,13 @@ public class HouseVisualizer : MonoBehaviour
 
     private static void ApplyColorToAllRenderers(GameObject go, Color color)
     {
-        foreach (var rend in go.GetComponentsInChildren<Renderer>())
+        foreach (var rend in go.GetComponentsInChildren<Renderer>(true))
             ApplyColorToRenderer(rend, color);
     }
 
     /// <summary>
-    /// Build'de gorunur olmasi icin: default material kopyalanir, renk verilir.
-    /// Golge kapatilir - bazi build'lerde sadece golge gorunup bina gorunmuyordu.
+    /// Tüm prefab rengini degistirir: hem _Color (Built-in) hem _BaseColor (URP) uygulanir.
+    /// Böylece zemin degil komple bina rengi degisir.
     /// </summary>
     private static void ApplyColorToRenderer(Renderer rend, Color color)
     {
@@ -265,12 +265,15 @@ public class HouseVisualizer : MonoBehaviour
         {
             var copy = new Material(rend.sharedMaterial);
             if (copy.HasProperty("_Color"))
-                copy.color = color;
+                copy.SetColor("_Color", color);
+            if (copy.HasProperty("_BaseColor"))
+                copy.SetColor("_BaseColor", color);
             rend.sharedMaterial = copy;
         }
         catch
         {
-            rend.material.color = color;
+            if (rend.material.HasProperty("_Color")) rend.material.SetColor("_Color", color);
+            if (rend.material.HasProperty("_BaseColor")) rend.material.SetColor("_BaseColor", color);
         }
     }
 

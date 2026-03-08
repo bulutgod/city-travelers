@@ -84,7 +84,7 @@ public class GameTurnManager : NetworkBehaviour
     [Header("Hapishane")]
     [Tooltip("Hapisten isteğe bağlı çıkış ücreti. 0 = ücretsiz.")]
     [SerializeField] private int jailReleaseFee = 50;
-    [Tooltip("Hapiste en fazla kaç tur kalınır (zar atma denemesi sayısı).")]
+    [Tooltip("Çift zar atmadan en fazla kaç kez zar atma denemesi. Bu kadar denemeden sonra sıra tekrar gelince attığın zarla çıkarsın.")]
     [SerializeField] private int maxJailTurns = 3;
     [Tooltip("Üst üste kaç çift zar atılırsa hapishaneye gider. 2 = test için kolay, 3 = klasik monopoli.")]
     [SerializeField] private int doublesCountForJail = 3;
@@ -102,12 +102,16 @@ public class GameTurnManager : NetworkBehaviour
     private bool _lastRollWasDoubles;
     /// <summary> Aynı turda üst üste kaç kez çift zar atıldı. N olunca hapishaneye gider. </summary>
     private int _consecutiveDoublesCount;
-    /// <summary> Her oyuncu için hapiste kaç tur geçirdiğini takip eder. Herkes 3 tur kalır (çift zar/ödeme 3. turda). </summary>
-    private readonly Dictionary<int, int> _jailTurns = new Dictionary<int, int>();
+    /// <summary> Hapiste çift zar atmadan yapılan zar atma denemesi sayısı (1, 2, 3). </summary>
+    private readonly Dictionary<int, int> _jailRollAttempts = new Dictionary<int, int>();
+    /// <summary> 3 denemede çift atamadıysa sıra tekrar gelince attığı zarla çıkacak. </summary>
+    private readonly Dictionary<int, bool> _jailExitWithNextRoll = new Dictionary<int, bool>();
+    /// <summary> "Hapishaneye Git" karesine zarla gelince: ilk turda çift zar ile çıkış yok (en az 1 tur hapis). </summary>
+    private readonly Dictionary<int, bool> _jailSkipFirstDoublesExit = new Dictionary<int, bool>();
     /// <summary> Son tur gecis zamani (Server). minTurnStartDelay dolana kadar zar atilamaz. </summary>
     private float _turnStartTime;
 
-    public int JailReleaseFee => jailReleaseFee;
+    public int JailReleaseFee => GameEconomy.ScalePrice(jailReleaseFee);
     /// <summary> Tur gecisinden sonra zar atilabilmesi icin gecen sure yeterli mi? (Client UI icin) </summary>
     public bool CanRollNow() => (float)(NetworkTime.time - _turnStartNetworkTime) >= minTurnStartDelay;
 
@@ -252,12 +256,26 @@ public class GameTurnManager : NetworkBehaviour
         centralBankPool = 0;
         activeAgendaEffect = 0;
         _consecutiveDoublesCount = 0;
-        _jailTurns.Clear();
+        _jailRollAttempts.Clear();
+        _jailExitWithNextRoll.Clear();
+        _jailSkipFirstDoublesExit.Clear();
 
         foreach (var p in players)
         {
             if (p != null)
             {
+                p.currentSpaceIndex = 0;
+                p.isInJail = false;
+                p.money = GameEconomy.StartingMoney;
+            }
+        }
+
+        // Host veya gec eklenen oyuncu listede olmayabilir; prefab varsayilani (1500) kalan herkesi de 1.5M yap
+        foreach (var p in FindObjectsOfType<PlayerObject>())
+        {
+            if (p != null && !bankruptPlayerIndices.Contains(p.playerIndex) && p.money == 1500)
+            {
+                p.money = GameEconomy.StartingMoney;
                 p.currentSpaceIndex = 0;
                 p.isInJail = false;
             }
@@ -308,7 +326,13 @@ public class GameTurnManager : NetworkBehaviour
 
         if (requester.isInJail)
         {
-            if (requester.isBot && jailReleaseFee > 0 && requester.money >= jailReleaseFee)
+            if (_jailExitWithNextRoll.TryGetValue(requester.playerIndex, out bool exitNext) && exitNext)
+            {
+                StartCoroutine(ServerJailExitWithRoll(requester));
+                return true;
+            }
+            int jailFee = GameEconomy.ScalePrice(jailReleaseFee);
+            if (requester.isBot && jailFee > 0 && requester.money >= jailFee)
             {
                 ServerPayToLeaveJail(requester);
                 return true;
@@ -380,7 +404,7 @@ public class GameTurnManager : NetworkBehaviour
     }
 
     [Server]
-    private void SendToJail(PlayerObject requester, bool fromTripleDoubles = false)
+    private void SendToJail(PlayerObject requester, bool fromTripleDoubles = false, bool fromLandingOnGoToJail = false)
     {
         int jailIndex = GetJailSpaceIndex();
         if (jailIndex < 0)
@@ -393,7 +417,12 @@ public class GameTurnManager : NetworkBehaviour
         {
             requester.currentSpaceIndex = jailIndex;
             requester.isInJail = true;
-            _jailTurns[requester.playerIndex] = 0;
+            _jailRollAttempts[requester.playerIndex] = 0;
+            _jailExitWithNextRoll.Remove(requester.playerIndex);
+            if (fromLandingOnGoToJail)
+                _jailSkipFirstDoublesExit[requester.playerIndex] = true;
+            else
+                _jailSkipFirstDoublesExit.Remove(requester.playerIndex);
         }
         if (fromTripleDoubles)
             RpcShowNotification(requester != null
@@ -410,14 +439,13 @@ public class GameTurnManager : NetworkBehaviour
     private IEnumerator ServerJailRoll(PlayerObject requester)
     {
         isRolling = true;
-        rollingPlayerIndex = requester.playerIndex;
-        int turns = 0;
-        if (requester != null && _jailTurns.TryGetValue(requester.playerIndex, out var t))
-            turns = t;
-        turns++;
+        rollingPlayerIndex = requester != null ? requester.playerIndex : -1;
+        int attempts = 0;
+        if (requester != null && _jailRollAttempts.TryGetValue(requester.playerIndex, out var a))
+            attempts = a;
+        attempts++;
         if (requester != null)
-            _jailTurns[requester.playerIndex] = turns;
-        bool forceExit = turns >= maxJailTurns;
+            _jailRollAttempts[requester.playerIndex] = attempts;
 
         int dice1 = Random.Range(1, 7);
         int dice2 = Random.Range(1, 7);
@@ -425,7 +453,7 @@ public class GameTurnManager : NetworkBehaviour
         lastRollValue = roll;
         lastRollDice1 = dice1;
         lastRollDice2 = dice2;
-        lastRollPlayerIndex = requester.playerIndex;
+        lastRollPlayerIndex = requester != null ? requester.playerIndex : -1;
         _lastRollWasDoubles = false;
 
         RpcPlayDiceRoll();
@@ -435,45 +463,77 @@ public class GameTurnManager : NetworkBehaviour
         isRolling = false;
         rollingPlayerIndex = -1;
 
-        // Herkes 3 tur kalır: çift zarla çıkış sadece 3. turda (turns >= maxJailTurns)
-        bool canExitOnDoubles = dice1 == dice2 && turns >= maxJailTurns;
+        // Çift zar = iki zarda AYNI sayı (2+2, 4+4 vb.), toplamın çift olması değil
+        bool isDoubles = (dice1 == dice2);
+        bool skipFirstDoubles = requester != null && attempts == 1 && _jailSkipFirstDoublesExit.TryGetValue(requester.playerIndex, out var skip) && skip;
 
-        if (canExitOnDoubles)
+        if (isDoubles && !skipFirstDoubles)
         {
             if (requester != null)
             {
                 requester.isInJail = false;
-                _jailTurns.Remove(requester.playerIndex);
+                _jailRollAttempts.Remove(requester.playerIndex);
+                _jailExitWithNextRoll.Remove(requester.playerIndex);
+                _jailSkipFirstDoublesExit.Remove(requester.playerIndex);
             }
-            RpcShowNotification(requester != null ? $"{requester.steamName} çift zar attı, hapishaneden çıktı!" : "Çift zar - hapishaneden çıkıldı!");
+            RpcShowNotification(requester != null ? $"{requester.steamName} {dice1}+{dice2} çift zar, hapishaneden çıktı!" : $"{dice1}+{dice2} çift zar - hapishaneden çıkıldı!");
             StartCoroutine(ServerRollAndMove(requester, roll, dice1, dice2));
         }
-        else if (dice1 == dice2 && turns < maxJailTurns)
+        else if (isDoubles && skipFirstDoubles)
         {
-            RpcShowNotification(requester != null
-                ? $"{requester.steamName} çift zar attı ama {maxJailTurns} tur dolmadan çıkamaz! ({turns}/{maxJailTurns})"
-                : $"Çift zar - {maxJailTurns} tur dolmadan çıkamazsın. ({turns}/{maxJailTurns})");
+            if (requester != null)
+                _jailSkipFirstDoublesExit.Remove(requester.playerIndex);
+            RpcShowNotification(requester != null ? $"{requester.steamName} çift zar attı ama Hapishaneye Git karesinden geldiği için bu tur çıkamıyor. ({attempts}/{maxJailTurns})" : "Çift zar - bu tur hapisten çıkılamıyor.");
             AdvanceTurn();
         }
-        else if (forceExit)
+        else if (attempts >= maxJailTurns)
         {
             if (requester != null)
-            {
-                requester.isInJail = false;
-                _jailTurns.Remove(requester.playerIndex);
-            }
+                _jailExitWithNextRoll[requester.playerIndex] = true;
             RpcShowNotification(requester != null
-                ? $"{requester.steamName} {maxJailTurns}. turunda hapisten çıktı."
-                : "Hapisten çıkış süresi doldu.");
-            StartCoroutine(ServerRollAndMove(requester, roll, dice1, dice2));
+                ? $"{requester.steamName} {maxJailTurns} denemede çift atamadı - sıra tekrar gelince attığın zarla çıkacaksın."
+                : $"{maxJailTurns} denemede çift atılamadı - sıra gelince çıkılacak.");
+            AdvanceTurn();
         }
         else
         {
             RpcShowNotification(requester != null
-                ? $"{requester.steamName} çift zar atamadı - hapiste kalıyor. ({turns}/{maxJailTurns})"
+                ? $"{requester.steamName} çift zar atamadı - hapiste kalıyor. ({attempts}/{maxJailTurns} deneme)"
                 : "Çift zar atılamadı.");
             AdvanceTurn();
         }
+    }
+
+    /// <summary>3 denemede çift atamayan oyuncu: sıra gelince attığı zarla hapisten çıkar, ilerler.</summary>
+    [Server]
+    private IEnumerator ServerJailExitWithRoll(PlayerObject requester)
+    {
+        isRolling = true;
+        rollingPlayerIndex = requester != null ? requester.playerIndex : -1;
+        int dice1 = Random.Range(1, 7);
+        int dice2 = Random.Range(1, 7);
+        int roll = dice1 + dice2;
+        lastRollValue = roll;
+        lastRollDice1 = dice1;
+        lastRollDice2 = dice2;
+        lastRollPlayerIndex = requester != null ? requester.playerIndex : -1;
+        _lastRollWasDoubles = (dice1 == dice2);
+
+        RpcPlayDiceRoll();
+        RpcPlayDiceLand(dice1, dice2);
+        yield return new WaitForSeconds(Mathf.Max(0f, delayBeforeMoveAfterRoll));
+
+        isRolling = false;
+        rollingPlayerIndex = -1;
+
+        if (requester != null)
+        {
+            requester.isInJail = false;
+            _jailRollAttempts.Remove(requester.playerIndex);
+            _jailExitWithNextRoll.Remove(requester.playerIndex);
+        }
+        RpcShowNotification(requester != null ? $"{requester.steamName} hapisten çıktı, attığı zarla ilerliyor." : "Hapisten çıkıldı.");
+        StartCoroutine(ServerRollAndMove(requester, roll, dice1, dice2));
     }
 
     /// <summary>Gündem Çifte Şansızlık: zar atılır ama hareket edilmez.</summary>
@@ -518,7 +578,7 @@ public class GameTurnManager : NetworkBehaviour
         float stepDelay = Mathf.Max(0.03f, moveStepDelay);
 
         var startInfo = BoardManager.Instance != null ? BoardManager.Instance.GetSpaceInfo(0) : null;
-        int startBonus = startInfo != null ? startInfo.startBonus : 0;
+        int startBonus = startInfo != null ? GameEconomy.ScalePrice(startInfo.startBonus) : 0;
 
         for (int i = 0; i < steps; i++)
         {
@@ -540,7 +600,7 @@ public class GameTurnManager : NetworkBehaviour
                     GameStatsManager.Instance.RecordPassedGo(requester.playerIndex);
                 }
                 RpcPlayCoinGain();
-                RpcShowNotification($"{requester.steamName} Start'tan geçti: +{startBonus} TL");
+                RpcShowNotification($"{requester.steamName} Start'tan geçti: +{GameEconomy.FormatMoney(startBonus)}");
             }
             yield return new WaitForSeconds(stepDelay);
         }
@@ -579,20 +639,21 @@ public class GameTurnManager : NetworkBehaviour
                             requester.money += pool;
                             if (GameStatsManager.Instance != null)
                                 GameStatsManager.Instance.RecordEarned(requester.playerIndex, pool);
-                            RpcShowNotification($"{requester.steamName} Merkez Bankası'na gitti - {pool} TL aldı!");
+                            RpcShowNotification($"{requester.steamName} Merkez Bankası'na gitti - {GameEconomy.FormatMoney(pool)} aldı!");
                             RpcPlayCoinGain();
                         }
                     }
                 }
                 else if (kaderCard.amount != 0)
                 {
-                    requester.money = Mathf.Max(0, requester.money + kaderCard.amount);
+                    int scaledAmount = GameEconomy.ScalePrice(Mathf.Abs(kaderCard.amount)) * (kaderCard.amount >= 0 ? 1 : -1);
+                    requester.money = Mathf.Max(0, requester.money + scaledAmount);
                     if (GameStatsManager.Instance != null)
                     {
-                        if (kaderCard.amount > 0) GameStatsManager.Instance.RecordEarned(requester.playerIndex, kaderCard.amount);
-                        else GameStatsManager.Instance.RecordSpent(requester.playerIndex, -kaderCard.amount);
+                        if (scaledAmount > 0) GameStatsManager.Instance.RecordEarned(requester.playerIndex, scaledAmount);
+                        else GameStatsManager.Instance.RecordSpent(requester.playerIndex, -scaledAmount);
                     }
-                    RpcShowEventPopup("KADER ANI", kaderCard.text, requester.steamName, kaderCard.amount);
+                    RpcShowEventPopup("KADER ANI", kaderCard.text, requester.steamName, scaledAmount);
                     if (requester.money <= 0)
                         ServerHandleBankruptcy(requester, "Kader Anı kartından ödemeden sonra");
                 }
@@ -623,6 +684,10 @@ public class GameTurnManager : NetworkBehaviour
                 int kumarD1 = Random.Range(1, 7);
                 int kumarD2 = Random.Range(1, 7);
                 int kumarSum = kumarD1 + kumarD2;
+                lastRollValue = kumarSum;
+                lastRollDice1 = kumarD1;
+                lastRollDice2 = kumarD2;
+                lastRollPlayerIndex = requester.playerIndex;
                 isRolling = true;
                 rollingPlayerIndex = requester.playerIndex;
                 RpcPlayDiceRoll();
@@ -632,7 +697,7 @@ public class GameTurnManager : NetworkBehaviour
                 rollingPlayerIndex = -1;
                 if (kumarSum >= 8)
                 {
-                    int win = kumarSum * 5;
+                    int win = GameEconomy.ScalePrice(kumarSum * 5);
                     requester.money += win;
                     if (GameStatsManager.Instance != null)
                         GameStatsManager.Instance.RecordEarned(requester.playerIndex, win);
@@ -641,7 +706,7 @@ public class GameTurnManager : NetworkBehaviour
                 }
                 else
                 {
-                    int pay = kumarSum * 10;
+                    int pay = GameEconomy.ScalePrice(kumarSum * 10);
                     requester.money = Mathf.Max(0, requester.money - pay);
                     centralBankPool += pay;
                     if (GameStatsManager.Instance != null)
@@ -681,7 +746,7 @@ public class GameTurnManager : NetworkBehaviour
                 RpcShowNotification($"{requester.steamName} hapishanede ziyaret");
                 break;
             case SpaceInfo.SpaceType.GoToJail:
-                SendToJail(requester, fromTripleDoubles: false);
+                SendToJail(requester, fromTripleDoubles: false, fromLandingOnGoToJail: true);
                 yield break;
             default:
                 // Mülk/kira mantığı
@@ -689,7 +754,7 @@ public class GameTurnManager : NetworkBehaviour
                 {
                     if (PropertyManager.Instance.MustPayRent(landedIndex, requester.playerIndex))
                     {
-                        int baseRent = info != null ? info.rent : 0;
+                        int baseRent = info != null ? GameEconomy.ScalePrice(info.rent) : 0;
                         int rent = PropertyManager.Instance.GetRentWithHouses(landedIndex, baseRent);
                         if (rent > 0)
                         {
@@ -757,7 +822,8 @@ public class GameTurnManager : NetworkBehaviour
                             var spaceInfo = BoardManager.Instance != null ? BoardManager.Instance.GetSpaceInfo(landedIndex) : null;
                             if (spaceInfo != null && spaceInfo.IsPurchasable && spaceInfo.CanBuildHouses)
                             {
-                                int housePrice = spaceInfo.housePrice > 0 ? spaceInfo.housePrice : (spaceInfo.purchasePrice / 2);
+                                int housePriceDesign = spaceInfo.housePrice > 0 ? spaceInfo.housePrice : (spaceInfo.purchasePrice / 2);
+                                int housePrice = GameEconomy.ScalePrice(housePriceDesign);
                                 if (housePrice > 0 && requester.money >= housePrice)
                                 {
                                     PropertyManager.Instance.ServerSetPendingBuild(landedIndex, requester.playerIndex);
@@ -883,7 +949,7 @@ public class GameTurnManager : NetworkBehaviour
     {
         if (requester == null) return;
         if (!requester.isInJail) return;
-        int fee = Mathf.Max(0, jailReleaseFee);
+        int fee = GameEconomy.ScalePrice(Mathf.Max(0, jailReleaseFee));
         if (fee > 0 && requester.money < fee) return;
 
         if (fee > 0)
@@ -894,11 +960,12 @@ public class GameTurnManager : NetworkBehaviour
         }
 
         requester.isInJail = false;
-        _jailTurns.Remove(requester.playerIndex);
+        _jailRollAttempts.Remove(requester.playerIndex);
+        _jailExitWithNextRoll.Remove(requester.playerIndex);
 
         string name = string.IsNullOrWhiteSpace(requester.steamName) ? $"Oyuncu {requester.playerIndex}" : requester.steamName;
         if (fee > 0)
-            RpcShowNotification($"{name} hapisten çıkmak için {fee} TL ödedi. Zar atıyor...");
+            RpcShowNotification($"{name} hapisten çıkmak için {GameEconomy.FormatMoney(fee)} ödedi. Zar atıyor...");
         else
             RpcShowNotification($"{name} hapisten çıktı. Zar atıyor...");
 
@@ -978,7 +1045,7 @@ public class GameTurnManager : NetworkBehaviour
     private static readonly ChanceCard[] ChanceCards =
     {
         new ChanceCard { text = "Banka size faiz odedi.", amount = 50 },
-        new ChanceCard { text = "Dogum gunu hediyesi! Her oyuncudan 10 TL al.", amount = 30 },
+        new ChanceCard { text = "Doğum günü hediyesi! Her oyuncudan 10 birim al.", amount = 30 },
         new ChanceCard { text = "Vergi iadesi.", amount = 100 },
         new ChanceCard { text = "Yarisma kazandiniz!", amount = 150 },
         new ChanceCard { text = "Hastane faturasi.", amount = -50 },
@@ -1065,7 +1132,7 @@ public class GameTurnManager : NetworkBehaviour
             if (PropertyManager.Instance.GetOwner(i) != playerIndex) continue;
             var info = BoardManager.Instance.GetSpaceInfo(i);
             if (info == null) continue;
-            int baseRent = info.rent;
+            int baseRent = GameEconomy.ScalePrice(info.rent);
             int rent = PropertyManager.Instance.GetRentWithHouses(i, baseRent);
             total += rent;
         }
@@ -1082,11 +1149,11 @@ public class GameTurnManager : NetworkBehaviour
         LastCardIsChance = false;
         LastCardTime = Time.time;
         string msg = amount != 0
-            ? $"{playerName}: {cardText} ({(amount > 0 ? "+" : "")}{amount} TL)"
+            ? $"{playerName}: {cardText} ({(amount > 0 ? "+" : "")}{GameEconomy.FormatMoney(amount)})"
             : $"{playerName}: {cardText}";
         LastNotification = msg;
         LastNotificationTime = Time.time;
-        Debug.Log($"[OLAY] {title} | {playerName} | {cardText} | {(amount != 0 ? $"{(amount > 0 ? "+" : "")}{amount} TL" : "-")}");
+        Debug.Log($"[OLAY] {title} | {playerName} | {cardText} | {(amount != 0 ? $"{(amount > 0 ? "+" : "")}{GameEconomy.FormatMoney(amount)}" : "-")}");
         if (AudioManager.Instance != null)
             AudioManager.Instance.PlayNotification();
     }
@@ -1101,7 +1168,7 @@ public class GameTurnManager : NetworkBehaviour
         LastCardIsChance = isChance;
         LastCardTime = Time.time;
         string msg = amount != 0
-            ? $"{playerName}: {cardText} ({(amount > 0 ? "+" : "")}{amount} TL)"
+            ? $"{playerName}: {cardText} ({(amount > 0 ? "+" : "")}{GameEconomy.FormatMoney(amount)})"
             : $"{playerName}: {cardText}";
         LastNotification = msg;
         LastNotificationTime = Time.time;
@@ -1112,7 +1179,7 @@ public class GameTurnManager : NetworkBehaviour
     [ClientRpc]
     private void RpcShowRentNotification(string payerName, string ownerName, int amount)
     {
-        LastNotification = $"{payerName} {amount} TL kira ödedi ({ownerName})";
+        LastNotification = $"{payerName} {GameEconomy.FormatMoney(amount)} kira ödedi ({ownerName})";
         LastNotificationTime = Time.time;
         if (AudioManager.Instance != null) AudioManager.Instance.PlayRentPay();
     }
@@ -1149,7 +1216,8 @@ public class GameTurnManager : NetworkBehaviour
     {
         if (player == null) return;
         if (bankruptPlayerIndices.Contains(player.playerIndex)) return;
-        _jailTurns.Remove(player.playerIndex);
+        _jailRollAttempts.Remove(player.playerIndex);
+        _jailExitWithNextRoll.Remove(player.playerIndex);
         bankruptPlayerIndices.Add(player.playerIndex);
         RpcPlayBankrupt();
         string msg = !string.IsNullOrEmpty(reason)
@@ -1307,7 +1375,8 @@ public class GameTurnManager : NetworkBehaviour
             yield break;
 
         var info = BoardManager.Instance != null ? BoardManager.Instance.GetSpaceInfo(spaceIndex) : null;
-        int housePrice = info != null ? (info.housePrice > 0 ? info.housePrice : (info.purchasePrice / 2)) : 0;
+        int housePriceDesign = info != null ? (info.housePrice > 0 ? info.housePrice : (info.purchasePrice / 2)) : 0;
+        int housePrice = GameEconomy.ScalePrice(housePriceDesign);
         int currentHouses = PropertyManager.Instance.GetHouseCount(spaceIndex);
         int maxAdd;
         if (currentHouses == 4)
@@ -1338,12 +1407,14 @@ public class GameTurnManager : NetworkBehaviour
             yield break;
 
         var info = BoardManager.Instance != null ? BoardManager.Instance.GetSpaceInfo(spaceIndex) : null;
-        if (info == null || bot.money < info.purchasePrice) { PropertyManager.Instance.ServerDeclineBuy(bot, spaceIndex); yield break; }
+        int purchasePrice = info != null ? GameEconomy.ScalePrice(info.purchasePrice) : 0;
+        if (info == null || bot.money < purchasePrice) { PropertyManager.Instance.ServerDeclineBuy(bot, spaceIndex); yield break; }
         if (Random.value <= 0.3f) { PropertyManager.Instance.ServerDeclineBuy(bot, spaceIndex); yield break; }
         int count = 1;
-        int housePrice = info.housePrice > 0 ? info.housePrice : (info.purchasePrice / 2);
-        if (housePrice > 0 && bot.money >= info.purchasePrice + housePrice && Random.value > 0.5f)
-            count = Mathf.Min(4, 1 + (bot.money - info.purchasePrice) / housePrice);
+        int housePriceDesign = info.housePrice > 0 ? info.housePrice : (info.purchasePrice / 2);
+        int housePrice = GameEconomy.ScalePrice(housePriceDesign);
+        if (housePrice > 0 && bot.money >= purchasePrice + housePrice && Random.value > 0.5f)
+            count = Mathf.Min(4, 1 + (bot.money - purchasePrice) / housePrice);
         if (!bot.hasPassedStart) count = Mathf.Min(count, 3);
         PropertyManager.Instance.ServerTryBuyOrBuild(bot, spaceIndex, count);
     }
@@ -1357,7 +1428,7 @@ public class GameTurnManager : NetworkBehaviour
             yield break;
 
         var info = BoardManager.Instance != null ? BoardManager.Instance.GetSpaceInfo(spaceIndex) : null;
-        int baseRent = info != null ? info.rent : 0;
+        int baseRent = info != null ? GameEconomy.ScalePrice(info.rent) : 0;
         int rent = PropertyManager.Instance.GetRentWithHouses(spaceIndex, baseRent);
         int buyPrice = rent * 2;
 

@@ -125,10 +125,10 @@ public class GameStatsManager : MonoBehaviour
             int rentReceived = nums.Length > 3 ? int.Parse(nums[3]) : 0;
             int passedGo = nums.Length > 4 ? int.Parse(nums[4]) : 0;
             sb.AppendLine($"Oyuncu {p + 1}:");
-            sb.AppendLine($"  Toplam kazanç: {earned} TL");
-            sb.AppendLine($"  Toplam harcama: {spent} TL");
-            sb.AppendLine($"  Kira ödedi: {rentPaid} TL");
-            sb.AppendLine($"  Kira aldı: {rentReceived} TL");
+            sb.AppendLine($"  Toplam kazanç: {GameEconomy.FormatMoney(earned)}");
+            sb.AppendLine($"  Toplam harcama: {GameEconomy.FormatMoney(spent)}");
+            sb.AppendLine($"  Kira ödedi: {GameEconomy.FormatMoney(rentPaid)}");
+            sb.AppendLine($"  Kira aldı: {GameEconomy.FormatMoney(rentReceived)}");
             sb.AppendLine($"  Start'tan geçiş: {passedGo} kez");
             sb.AppendLine();
         }

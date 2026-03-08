@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 650f04e674fca9841ad0e7cc6e7d6c65
+guid: d78bfea14b036104da10659efef99395
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
@@ -7,48 +7,13 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: Bricks.006
-    second: {fileID: 2100000, guid: 18153b506eb2fc944b86f5483f176d07, type: 2}
+      name: Dice
+    second: {fileID: 2100000, guid: c1080dfddf8986f4393619c43a3117dd, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: Dark.006
-    second: {fileID: 2100000, guid: 0c528dfe1e5c4fe4ab2fcfe26944ec5b, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: DarkWood.006
-    second: {fileID: 2100000, guid: 2ed729a161a07a34d9817076e43de240, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: Glass.006
-    second: {fileID: 2100000, guid: ccbc952f4eac5144aa923883c7191276, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: Light.005
-    second: {fileID: 2100000, guid: a261883401981a64b8280729d0a9d3eb, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: Main.006
-    second: {fileID: 2100000, guid: b21965b9c34cbb4458ad6f13d4225bc3, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: RoofBricks.001
-    second: {fileID: 2100000, guid: efb74e7745380844785b554361a629d8, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: White.006
-    second: {fileID: 2100000, guid: 4d65a39a348317646ad944be8ccb5369, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: Wood.004
-    second: {fileID: 2100000, guid: d36f1b252d66ce54997e56e6e322c995, type: 2}
+      name: Dot
+    second: {fileID: 2100000, guid: 9b375ce7597549a44b413e12db8a66d0, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

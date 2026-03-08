@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 582816dd272d5494ea4db62242304a2f
+guid: 2ed7e10d3837cd044a0baa2aa87b3ec7
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
@@ -7,43 +7,53 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: Bricks
-    second: {fileID: 2100000, guid: 41199bdd74bd0314c8c61389cc79ad31, type: 2}
+      name: Bricks.006
+    second: {fileID: 2100000, guid: 18153b506eb2fc944b86f5483f176d07, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: Dark
-    second: {fileID: 2100000, guid: 9c8c737200164924681470124f060e1e, type: 2}
+      name: Dark.006
+    second: {fileID: 2100000, guid: 0c528dfe1e5c4fe4ab2fcfe26944ec5b, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: DarkWood
-    second: {fileID: 2100000, guid: 5547c5257208cb44786999a75a85b52d, type: 2}
+      name: DarkWood.006
+    second: {fileID: 2100000, guid: 2ed729a161a07a34d9817076e43de240, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: Glass
-    second: {fileID: 2100000, guid: 05214ab2b6af2284db295bfeec4ed8d0, type: 2}
+      name: Glass.006
+    second: {fileID: 2100000, guid: ccbc952f4eac5144aa923883c7191276, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: Main
-    second: {fileID: 2100000, guid: dabd08a2191646c4eb7300bde2c6528a, type: 2}
+      name: Light.005
+    second: {fileID: 2100000, guid: a261883401981a64b8280729d0a9d3eb, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: RoofBricks
-    second: {fileID: 2100000, guid: 48223f47f140e13499bf52e4518524d5, type: 2}
+      name: Main.006
+    second: {fileID: 2100000, guid: b21965b9c34cbb4458ad6f13d4225bc3, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: White
-    second: {fileID: 2100000, guid: 034650434e2978b4f896f05f865c55d0, type: 2}
+      name: Material.001
+    second: {fileID: 2100000, guid: e5c5d24e6c0ae154d987ff8525e0c94f, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: Wood
-    second: {fileID: 2100000, guid: f76c2c43bd9b3fa4ebd7e79ed0b0309c, type: 2}
+      name: RoofBricks.001
+    second: {fileID: 2100000, guid: efb74e7745380844785b554361a629d8, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: White.006
+    second: {fileID: 2100000, guid: 4d65a39a348317646ad944be8ccb5369, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Wood.004
+    second: {fileID: 2100000, guid: d36f1b252d66ce54997e56e6e322c995, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

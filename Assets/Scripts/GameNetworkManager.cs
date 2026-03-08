@@ -343,11 +343,13 @@ public class GameNetworkManager : NetworkManager
                 else
                 {
                     player.playerIndex = GetNextPlayerIndex();
+                    player.money = GameEconomy.StartingMoney;
                 }
             }
             else
             {
                 player.playerIndex = GetNextPlayerIndex();
+                player.money = GameEconomy.StartingMoney;
             }
 
             if (isGameScene && _pendingTeamMode)
@@ -465,7 +467,7 @@ public class GameNetworkManager : NetworkManager
         bot.steamName = $"Bot {idx + 1}";
         bot.steamId = 0;
         bot.currentSpaceIndex = 0;
-        bot.money = 1500;
+        bot.money = GameEconomy.StartingMoney;
         bot.selectedCharacterIndex = idx % 5;
         bot.selectedDiceIndex = 0;
         bot.hasPassedStart = false;
@@ -590,7 +592,7 @@ public class GameNetworkManager : NetworkManager
             bot.steamName = info.steamName;
             bot.steamId = 0;
             bot.currentSpaceIndex = 0;
-            bot.money = 1500;
+            bot.money = GameEconomy.StartingMoney;
             bot.selectedCharacterIndex = info.selectedCharacterIndex;
             bot.selectedDiceIndex = info.selectedDiceIndex;
             bot.hasPassedStart = false;
