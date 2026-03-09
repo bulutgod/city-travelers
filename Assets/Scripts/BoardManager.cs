@@ -3,6 +3,7 @@ using UnityEngine;
 using TMPro;
 #if UNITY_EDITOR
 using UnityEditor;
+using UnityEditor.SceneManagement;
 #endif
 
 /// <summary>
@@ -15,10 +16,13 @@ using UnityEditor;
 public class BoardManager : MonoBehaviour
 {
     public static BoardManager Instance { get; private set; }
-    public const int SpaceCount = 38;
 
     [Header("Tahta referansi")]
-    [Tooltip("38 veya 39 child'i olan root. 39 ise ortadaki board icin centerChildIndex atla.")]
+    [Tooltip("Kare sayisi. Yeni board 36, klasik 38. Model child sayisi bu veya bu+1 (ortadaki board) olmali.")]
+    [SerializeField] private int spaceCount = 36;
+    [Tooltip("Manuel atama: Board child'larini sirasiyla surukle (0=Start, 1=sonraki...). Doluysa boardRoot yok sayilir.")]
+    [SerializeField] private Transform[] manualSpaceTransforms;
+    [Tooltip("36 veya 38 child'i olan root. manualSpaceTransforms bos ise kullanilir.")]
     [SerializeField] private Transform boardRoot;
     [Tooltip("Sadece gorunum icin 3D model. 38 child icermeyen modeller icin: buraya surukle, Hierarchy'de Board altina da ekle. Placeholder kareler gizlenir.")]
     [SerializeField] private Transform boardVisual;
@@ -75,6 +79,12 @@ public class BoardManager : MonoBehaviour
     [Header("Flip (ileride Uno Flip modu)")]
     [SerializeField] private bool flipped;
 
+    [Header("Piyon pozisyonu (FBX pivot merkezdeyse)")]
+    [Tooltip("FBX modelinde space pivot'lari merkezdeyse: Mesh merkezini kullan. Kapaliysa transform.position kullanilir.")]
+    [SerializeField] private bool useMeshCenterForPawnPosition = true;
+    [Tooltip("Tum space pozisyonlarina eklenen offset. Board yanlis yerdeyse ayarlayin.")]
+    [SerializeField] private Vector3 spacePositionOffset = Vector3.zero;
+
     [Header("Kare basma animasyonu")]
     [Tooltip("Oyuncu indiginde karenin asagi inme miktari (Y).")]
     [SerializeField] private float spacePressDepth = 0.08f;
@@ -100,6 +110,9 @@ public class BoardManager : MonoBehaviour
     private TMPro.TextMeshPro[] _rentLabels;
     private Material _runtimePlaceholderMaterial;
 
+    /// <summary>Tahta kare sayisi (36 veya 38). Diger scriptler bu degeri kullanir.</summary>
+    public int SpaceCount => spaceCount;
+
     public bool Flipped
     {
         get => flipped;
@@ -111,10 +124,31 @@ public class BoardManager : MonoBehaviour
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
 
-        if (boardRoot != null && TryBuildSpacesFromModel(boardRoot))
+        if (TryBuildSpacesFromManualTransforms())
         {
             if (showLabelsWhenUsingModel)
+            {
+                var existingLabels = transform.Find("Board_Labels");
+                if (existingLabels != null && existingLabels.childCount >= SpaceCount)
+                {
+                    TrySoftRefreshLabels();
+                    return;
+                }
                 CreateLabelsForModelSpaces();
+            }
+        }
+        else if (boardRoot != null && TryBuildSpacesFromModel(boardRoot))
+        {
+            if (showLabelsWhenUsingModel)
+            {
+                var existingLabels = transform.Find("Board_Labels");
+                if (existingLabels != null && existingLabels.childCount >= SpaceCount)
+                {
+                    TrySoftRefreshLabels();
+                    return;
+                }
+                CreateLabelsForModelSpaces();
+            }
         }
         else
         {
@@ -122,6 +156,21 @@ public class BoardManager : MonoBehaviour
         }
         if (boardVisual != null)
             boardVisual.gameObject.SetActive(true);
+    }
+
+    private bool TryBuildSpacesFromManualTransforms()
+    {
+        if (manualSpaceTransforms == null || manualSpaceTransforms.Length < SpaceCount) return false;
+        int valid = 0;
+        for (int i = 0; i < SpaceCount; i++)
+        {
+            if (manualSpaceTransforms[i] != null) valid++;
+        }
+        if (valid < SpaceCount) return false;
+        _spaces = new Transform[SpaceCount];
+        for (int i = 0; i < SpaceCount; i++)
+            _spaces[i] = manualSpaceTransforms[i];
+        return true;
     }
 
     /// <summary>
@@ -136,9 +185,39 @@ public class BoardManager : MonoBehaviour
     public Vector3 GetSpacePosition(int index)
     {
         int i = GetEffectiveIndex(index);
-        if (_spaces != null && i >= 0 && i < _spaces.Length && _spaces[i] != null)
-            return _spaces[i].position;
-        return Vector3.zero;
+        if (_spaces == null || i < 0 || i >= _spaces.Length || _spaces[i] == null)
+            return Vector3.zero;
+        var space = _spaces[i];
+        Vector3 pos;
+        if (useMeshCenterForPawnPosition)
+        {
+            var mf = space.GetComponentInChildren<MeshFilter>();
+            if (mf != null && mf.sharedMesh != null)
+            {
+                pos = mf.transform.TransformPoint(mf.sharedMesh.bounds.center);
+            }
+            else
+            {
+                var r = space.GetComponentInChildren<Renderer>();
+                if (r != null && r.bounds.size.sqrMagnitude > 0.001f)
+                {
+                    var b = r.bounds;
+                    if (b.size.x < 3f && b.size.z < 3f)
+                        pos = b.center;
+                    else
+                        pos = space.position;
+                }
+                else
+                {
+                    pos = space.position;
+                }
+            }
+        }
+        else
+        {
+            pos = space.position;
+        }
+        return pos + spacePositionOffset;
     }
 
     public Transform GetSpaceTransform(int index)
@@ -244,11 +323,13 @@ public class BoardManager : MonoBehaviour
         root.transform.localRotation = Quaternion.identity;
         root.transform.localScale = Vector3.one;
 
-        // 38 space: 4 kose + (ust 9, sag 8, alt 9, sol 8 ara kare).
-        // Tum kareler ayni boyut; koseler dogrudan path'in parcasi (bosluk yok).
+        // 36 space: 4 kose + (8,8,8,8). 38 space: 4 kose + (9,8,9,8).
+        int top = 8, right = 8, bottom = 8, left = 8;
+        if (spaceCount == 38) { top = 9; bottom = 9; }
+
         float step = tileSize + tileGap;
-        float halfW = 5f * step;
-        float halfH = 4.5f * step;
+        float halfW = (top + 1) * 0.5f * step;
+        float halfH = (right + 1) * 0.5f * step;
         float x, z;
 
         _spaces = new Transform[SpaceCount];
@@ -260,8 +341,8 @@ public class BoardManager : MonoBehaviour
         _spaces[idx] = CreateSpace(root.transform, x, 0f, z, idx, boardVisual == null);
         idx++;
 
-        // Ust ara: 9 kare
-        for (int i = 0; i < 9; i++)
+        // Ust ara
+        for (int i = 0; i < top; i++)
         {
             x = -halfW + (i + 1) * step;
             z = halfH;
@@ -275,8 +356,8 @@ public class BoardManager : MonoBehaviour
         _spaces[idx] = CreateSpace(root.transform, x, 0f, z, idx, boardVisual == null);
         idx++;
 
-        // Sag ara: 8 kare
-        for (int i = 0; i < 8; i++)
+        // Sag ara
+        for (int i = 0; i < right; i++)
         {
             x = halfW;
             z = halfH - (i + 1) * step;
@@ -290,8 +371,8 @@ public class BoardManager : MonoBehaviour
         _spaces[idx] = CreateSpace(root.transform, x, 0f, z, idx, boardVisual == null);
         idx++;
 
-        // Alt ara: 9 kare
-        for (int i = 0; i < 9; i++)
+        // Alt ara
+        for (int i = 0; i < bottom; i++)
         {
             x = halfW - (i + 1) * step;
             z = -halfH;
@@ -305,13 +386,13 @@ public class BoardManager : MonoBehaviour
         _spaces[idx] = CreateSpace(root.transform, x, 0f, z, idx, boardVisual == null);
         idx++;
 
-        // Sol ara: 8 kare
-        for (int i = 0; i < 8; i++)
+        // Sol ara
+        for (int i = 0; i < left; i++)
         {
             x = -halfW;
             z = -halfH + (i + 1) * step;
-        _spaces[idx] = CreateSpace(root.transform, x, 0f, z, idx, boardVisual == null);
-        idx++;
+            _spaces[idx] = CreateSpace(root.transform, x, 0f, z, idx, boardVisual == null);
+            idx++;
         }
         boardRoot = root.transform;
     }
@@ -329,13 +410,13 @@ public class BoardManager : MonoBehaviour
             }
         }
         if (useSingleLabelRotation) return labelRotAll;
-        if (index >= 0 && index <= 9) return labelRotBottom;
-        if (index >= 11 && index <= 18) return labelRotRight;
-        if (index >= 20 && index <= 28) return labelRotTop;
-        if (index >= 30 && index <= 37) return labelRotLeft;
-        if (index == 10) return labelRotRight;
-        if (index == 19) return labelRotTop;
-        if (index == 29) return labelRotLeft;
+        int bottomEnd = (spaceCount == 38) ? 9 : 8;
+        int rightEnd = bottomEnd + 1 + 8;
+        int topEnd = rightEnd + 1 + (spaceCount == 38 ? 9 : 8);
+        if (index >= 0 && index <= bottomEnd) return labelRotBottom;
+        if (index > bottomEnd && index <= rightEnd) return labelRotRight;
+        if (index > rightEnd && index <= topEnd) return labelRotTop;
+        if (index > topEnd && index < spaceCount) return labelRotLeft;
         return labelRotBottom;
     }
 
@@ -350,6 +431,7 @@ public class BoardManager : MonoBehaviour
         for (int i = 0; i < SpaceCount; i++)
         {
             var labelT = root.Find($"Label_{i}");
+            if (labelT == null && i < root.childCount) labelT = root.GetChild(i);
             if (labelT == null) return false;
             var nameT = labelT.Find("Name");
             var rentT = labelT.Find("Rent");
@@ -412,13 +494,14 @@ public class BoardManager : MonoBehaviour
             string name = info != null && !string.IsNullOrWhiteSpace(info.displayName) ? info.displayName : $"Space_{i}";
             bool isPurchasable = info != null && info.IsPurchasable && info.rent > 0;
 
+            Vector3 spaceCenter = GetSpacePosition(i);
             var bounds = GetSpaceBounds(space);
-            Vector3 dir = (space.position - transform.position);
+            Vector3 dir = (spaceCenter - transform.position);
             dir.y = 0f;
             if (dir.sqrMagnitude < 0.0001f) dir = Vector3.forward;
             dir.Normalize();
             float outward = Mathf.Max(bounds.extents.x, bounds.extents.z) * 0.2f;
-            Vector3 basePos = new Vector3(bounds.center.x, bounds.max.y + labelHeight, bounds.center.z) + dir * outward;
+            Vector3 basePos = new Vector3(spaceCenter.x, bounds.max.y + labelHeight, spaceCenter.z) + dir * outward;
             float yRot = labelBillboard ? 0f : GetLabelYRotationForSpace(i);
             Quaternion rot = Quaternion.Euler(90f, yRot, 0f);
             float scale = Mathf.Max(0.05f, labelScale);
@@ -531,6 +614,22 @@ public class BoardManager : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
+#if UNITY_EDITOR
+    private void OnDrawGizmosSelected()
+    {
+        if (boardRoot != null && (_spaces == null || _spaces.Length == 0))
+            TryBuildSpacesFromModel(boardRoot);
+        if (_spaces == null || _spaces.Length == 0) return;
+        Gizmos.color = Color.yellow;
+        for (int i = 0; i < _spaces.Length; i++)
+        {
+            if (_spaces[i] == null) continue;
+            var pos = GetSpacePosition(i);
+            Gizmos.DrawWireSphere(pos, 0.15f);
+        }
+    }
+#endif
+
     private Transform CreateSpace(Transform parent, float x, float y, float z, int index, bool showVisual = true)
     {
         var info = boardSpaceData != null ? boardSpaceData.GetSpace(index) : null;
@@ -625,21 +724,43 @@ public class BoardManager : MonoBehaviour
     public void EditorRefreshLabels()
     {
         if (Application.isPlaying) return;
+        Undo.RegisterFullObjectHierarchyUndo(gameObject, "Etiketleri Yenile");
         var existing = transform.Find("Board_Labels");
-        if (existing != null) DestroyImmediate(existing);
-        if (boardRoot != null && TryBuildSpacesFromModel(boardRoot))
+        if (existing != null)
+        {
+            Undo.DestroyObjectImmediate(existing.gameObject);
+        }
+        bool ok = TryBuildSpacesFromManualTransforms();
+        if (!ok && boardRoot != null) ok = TryBuildSpacesFromModel(boardRoot);
+        if (ok)
         {
             CreateLabelsForModelSpaces(forceRebuild: true);
+            var labelsRoot = transform.Find("Board_Labels");
+            if (labelsRoot != null)
+            {
+                Undo.RegisterCreatedObjectUndo(labelsRoot.gameObject, "Etiketleri Yenile");
+            }
+            EditorSceneManager.MarkSceneDirty(gameObject.scene);
+            if (PrefabUtility.IsPartOfPrefabInstance(gameObject))
+            {
+                PrefabUtility.RecordPrefabInstancePropertyModifications(transform);
+            }
         }
     }
 
     private void OnValidate()
     {
-        if (boardRoot != null)
+        if (boardSpaceData != null && boardSpaceData.spaces != null && boardSpaceData.spaces.Length > 0)
+            spaceCount = boardSpaceData.Count;
+        if (manualSpaceTransforms == null)
+            manualSpaceTransforms = new Transform[spaceCount];
+        else if (manualSpaceTransforms.Length < spaceCount)
+            System.Array.Resize(ref manualSpaceTransforms, spaceCount);
+        if (boardRoot != null && (manualSpaceTransforms == null || manualSpaceTransforms.Length == 0))
         {
             int c = boardRoot.childCount;
-            if (c != SpaceCount && c != SpaceCount + 1)
-                Debug.LogWarning($"[BoardManager] boardRoot {boardRoot.name} child sayisi {c}. 38 veya 39 (ortadaki board) olmali. Placeholder kullanilacak.");
+            if (c != spaceCount && c != spaceCount + 1)
+                Debug.LogWarning($"[BoardManager] boardRoot {boardRoot.name} child sayisi {c}. {spaceCount} veya {spaceCount + 1} (ortadaki board) olmali. Placeholder kullanilacak.");
         }
     }
 #endif

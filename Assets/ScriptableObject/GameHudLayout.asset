@@ -42,6 +42,11 @@ MonoBehaviour:
   settingsButtonPosition: {x: -16, y: -16}
   settingsButtonSize: {x: 80, y: 36}
   settingsButtonFontSize: 24
+  cornerHudSprites:
+  - {fileID: 21300000, guid: 018db80cb7f6f41078376d7dc7ac6e76, type: 3}
+  - {fileID: 21300000, guid: c637356f48d1d4f22ac9082fa0822ac9, type: 3}
+  - {fileID: 21300000, guid: e772eb53eefb74d49be2dc46a34ac8b9, type: 3}
+  - {fileID: 21300000, guid: bf6037fd5fb824bf9a9cd99eafc969c6, type: 3}
   cornerHudSize: {x: 140, y: 56}
   cornerHudOffset: {x: 16, y: 16}
   cornerHudAvatarSize: {x: 40, y: 40}

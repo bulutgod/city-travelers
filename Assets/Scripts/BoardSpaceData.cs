@@ -57,21 +57,27 @@ public class SpaceInfo
 }
 
 /// <summary>
-/// 38 karelik tahta tanimi. Inspector'da duzenleyebilir, BoardManager'a atanir.
+/// Tahta kare tanimi. Inspector'da duzenleyebilir, BoardManager'a atanir.
+/// BoardManager.spaceCount ile ayni olmali (36 veya 38).
 /// Create > RichContractor > Board Spaces Data ile yeni asset olustur.
 /// </summary>
 [CreateAssetMenu(fileName = "BoardSpaces", menuName = "RichContractor/Board Spaces Data", order = 0)]
 public class BoardSpaceData : ScriptableObject
 {
-    public const int Count = 38;
+    [Tooltip("Kare sayisi. BoardManager.spaceCount ile ayni olmali (36 veya 38).")]
+    [SerializeField] private int spaceCount = 36;
 
     [Tooltip("Her kare icin isim, renk ve tip. Sira tahta ustunden saat yonunde (0=baslangic).")]
-    public SpaceInfo[] spaces = new SpaceInfo[Count];
+    public SpaceInfo[] spaces = new SpaceInfo[36];
+
+    public int Count => spaceCount;
 
     private void OnValidate()
     {
-        if (spaces == null || spaces.Length != Count)
-            System.Array.Resize(ref spaces, Count);
+        if (spaceCount < 1) spaceCount = 36;
+        if (spaceCount > 40) spaceCount = 40;
+        if (spaces == null || spaces.Length != spaceCount)
+            System.Array.Resize(ref spaces, spaceCount);
     }
 
     public SpaceInfo GetSpace(int index)

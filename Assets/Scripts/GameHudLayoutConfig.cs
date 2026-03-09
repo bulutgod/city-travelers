@@ -62,6 +62,8 @@ public class GameHudLayoutConfig : ScriptableObject
     public int settingsButtonFontSize = 24;
 
     [Header("Player Corner HUDs (4 kose)")]
+    [Tooltip("Renkli sprite'lar: 0=kirmizi, 1=mavi, 2=yesil, 3=sari (piyon renkleriyle uyumlu). Atanirsa playerIndex'e gore otomatik atanir.")]
+    public Sprite[] cornerHudSprites = new Sprite[4];
     public Vector2 cornerHudSize = new Vector2(140, 56);
     public Vector2 cornerHudOffset = new Vector2(16, 16);
     public Vector2 cornerHudAvatarSize = new Vector2(40, 40);

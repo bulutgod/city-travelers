@@ -147,7 +147,7 @@ public class PropertyManager : NetworkBehaviour
     {
         if (boardManager == null) return 0;
         int count = 0;
-        int n = BoardManager.SpaceCount;
+        int n = BoardManager.Instance != null ? BoardManager.Instance.SpaceCount : 36;
         for (int i = 0; i < n; i++)
         {
             if (GetOwner(i) != playerIndex) continue;

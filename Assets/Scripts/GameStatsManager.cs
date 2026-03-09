@@ -10,9 +10,9 @@ public class GameStatsManager : MonoBehaviour
     public static GameStatsManager Instance { get; private set; }
 
     private const int MaxPlayers = 4;
-    private const int SpaceCount = 38;
+    private const int MaxSpaces = 40;
 
-    private readonly int[] _landingsPerSpace = new int[SpaceCount];
+    private readonly int[] _landingsPerSpace = new int[MaxSpaces];
     private readonly int[] _earned = new int[MaxPlayers];
     private readonly int[] _spent = new int[MaxPlayers];
     private readonly int[] _rentPaid = new int[MaxPlayers];
@@ -44,7 +44,8 @@ public class GameStatsManager : MonoBehaviour
 
     public void RecordLanding(int playerIndex, int spaceIndex)
     {
-        if (spaceIndex >= 0 && spaceIndex < SpaceCount && playerIndex >= 0 && playerIndex < MaxPlayers)
+        int n = BoardManager.Instance != null ? BoardManager.Instance.SpaceCount : MaxSpaces;
+        if (spaceIndex >= 0 && spaceIndex < n && playerIndex >= 0 && playerIndex < MaxPlayers)
             _landingsPerSpace[spaceIndex]++;
     }
 
@@ -83,8 +84,9 @@ public class GameStatsManager : MonoBehaviour
     /// </summary>
     public string GetSerializedStats()
     {
+        int n = BoardManager.Instance != null ? BoardManager.Instance.SpaceCount : MaxSpaces;
         var sb = new StringBuilder();
-        for (int i = 0; i < SpaceCount; i++)
+        for (int i = 0; i < n; i++)
         {
             if (i > 0) sb.Append(',');
             sb.Append(_landingsPerSpace[i]);
@@ -107,7 +109,7 @@ public class GameStatsManager : MonoBehaviour
         string[] landings = parts[0].Split(',');
         int maxLanding = 0;
         int maxLandingIndex = 0;
-        for (int i = 0; i < landings.Length && i < 38; i++)
+        for (int i = 0; i < landings.Length && i < MaxSpaces; i++)
         {
             int v = 0;
             int.TryParse(landings[i], out v);

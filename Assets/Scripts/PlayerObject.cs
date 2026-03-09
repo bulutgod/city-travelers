@@ -192,7 +192,7 @@ public class PlayerObject : NetworkBehaviour
     [Server]
     public void ServerMoveBy(int steps, int boardSpaceCount)
     {
-        if (boardSpaceCount <= 0) boardSpaceCount = 38;
+        if (boardSpaceCount <= 0) boardSpaceCount = BoardManager.Instance != null ? BoardManager.Instance.SpaceCount : 36;
         int next = currentSpaceIndex + steps;
         currentSpaceIndex = ((next % boardSpaceCount) + boardSpaceCount) % boardSpaceCount;
     }

@@ -2211,15 +2211,36 @@ public class GameHudUI : MonoBehaviour
 
             _playerCornerHuds[slot].root.SetActive(true);
 
-            if (isTeamGame)
+            var bg = _playerCornerHuds[slot].root.GetComponent<Image>();
+            if (bg != null)
             {
-                var bg = _playerCornerHuds[slot].root.GetComponent<Image>();
-                if (bg != null) bg.color = p.teamIndex == 0 ? team0Color : team1Color;
-            }
-            else
-            {
-                var bg = _playerCornerHuds[slot].root.GetComponent<Image>();
-                if (bg != null) bg.color = defaultHudColor;
+                if (isTeamGame)
+                {
+                    bg.color = p.teamIndex == 0 ? team0Color : team1Color;
+                    bg.sprite = null;
+                }
+                else
+                {
+                    if (C != null && C.cornerHudSprites != null && C.cornerHudSprites.Length >= 4)
+                    {
+                        int idx = Mathf.Abs(p.playerIndex) % 4;
+                        if (C.cornerHudSprites[idx] != null)
+                        {
+                            bg.sprite = C.cornerHudSprites[idx];
+                            bg.color = Color.white;
+                        }
+                        else
+                        {
+                            bg.sprite = null;
+                            bg.color = GetPlayerPaletteColor(p.playerIndex);
+                        }
+                    }
+                    else
+                    {
+                        bg.sprite = null;
+                        bg.color = GetPlayerPaletteColor(p.playerIndex);
+                    }
+                }
             }
 
             string nameStr = string.IsNullOrWhiteSpace(p.steamName) ? $"P{p.playerIndex}" : (p.steamName.Length > 12 ? p.steamName.Substring(0, 10) + ".." : p.steamName);
@@ -2244,6 +2265,20 @@ public class GameHudUI : MonoBehaviour
                 }
             }
         }
+    }
+
+    private static readonly Color[] PlayerPalette =
+    {
+        new Color(0.95f, 0.25f, 0.25f, 0.92f),
+        new Color(0.25f, 0.55f, 1.00f, 0.92f),
+        new Color(0.25f, 0.85f, 0.45f, 0.92f),
+        new Color(0.95f, 0.80f, 0.20f, 0.92f)
+    };
+
+    private static Color GetPlayerPaletteColor(int playerIndex)
+    {
+        int i = Mathf.Abs(playerIndex) % PlayerPalette.Length;
+        return PlayerPalette[i];
     }
 
     private void RefreshPlayerSummary()

@@ -67,7 +67,7 @@ public class GameTurnManager : NetworkBehaviour
     [SyncVar] public double gameStartNetworkTime;
 
     [Header("Tahta Ayarlari")]
-    [SerializeField] private int boardSpaceCount = 38;
+    [SerializeField] private int boardSpaceCount = 36;
 
     [Header("Merkez Bankası")]
     [Tooltip("Kumar ve Küresel Fon'dan gelen paralar burada birikir.")]
@@ -245,7 +245,7 @@ public class GameTurnManager : NetworkBehaviour
     private void InitializeMatch(List<PlayerObject> players)
     {
         RpcPlayGameMusic();
-        if (boardSpaceCount <= 0) boardSpaceCount = 38;
+        if (boardSpaceCount <= 0) boardSpaceCount = BoardManager.Instance != null ? BoardManager.Instance.SpaceCount : 36;
         turnNumber = 1;
         lastRollValue = 0;
         lastRollDice1 = 0;
@@ -393,7 +393,7 @@ public class GameTurnManager : NetworkBehaviour
     private int GetJailSpaceIndex()
     {
         if (BoardManager.Instance == null) return -1;
-        int n = boardSpaceCount > 0 ? boardSpaceCount : BoardManager.SpaceCount;
+        int n = boardSpaceCount > 0 ? boardSpaceCount : (BoardManager.Instance != null ? BoardManager.Instance.SpaceCount : 36);
         for (int i = 0; i < n; i++)
         {
             var info = BoardManager.Instance.GetSpaceInfo(i);
@@ -1098,7 +1098,7 @@ public class GameTurnManager : NetworkBehaviour
     private int GetMerkezBankasiSpaceIndex()
     {
         if (BoardManager.Instance == null) return -1;
-        int n = boardSpaceCount > 0 ? boardSpaceCount : BoardManager.SpaceCount;
+        int n = boardSpaceCount > 0 ? boardSpaceCount : (BoardManager.Instance != null ? BoardManager.Instance.SpaceCount : 36);
         for (int i = 0; i < n; i++)
         {
             var info = BoardManager.Instance.GetSpaceInfo(i);
@@ -1126,7 +1126,7 @@ public class GameTurnManager : NetworkBehaviour
     {
         if (PropertyManager.Instance == null || BoardManager.Instance == null) return 0;
         int total = 0;
-        int n = boardSpaceCount > 0 ? boardSpaceCount : BoardManager.SpaceCount;
+        int n = boardSpaceCount > 0 ? boardSpaceCount : (BoardManager.Instance != null ? BoardManager.Instance.SpaceCount : 36);
         for (int i = 0; i < n; i++)
         {
             if (PropertyManager.Instance.GetOwner(i) != playerIndex) continue;
