@@ -119,8 +119,39 @@ public class HouseVisualizer : MonoBehaviour
         Vector3 right = Vector3.Cross(Vector3.up, outward).normalized;
         float topY = GetSpaceTopY(spaceTf);
 
-        Vector3 basePos = center - outward * edgeOffset;
+        // House/otel/ownership göstergesi tile'ın tam merkezine konulsun.
+        // Player piyonları genelde merkezden offset'li olduğu için bu sayede piyonları çok daha az engeller.
+        Vector3 basePos = center;
         Quaternion rot = Quaternion.LookRotation(outward, Vector3.up);
+        // İstenen rotasyon kuralları:
+        //  - 1-10:  rotation.y = 90
+        //  - 11-19: rotation.y = 0  ve rotation.x = 15
+        //  - 20-29: rotation.y = 90
+        //  - 30-37: rotation.y = 0  ve rotation.x = 15
+        float targetY;
+        bool yIsZero = false;
+        if (spaceIndex >= 1 && spaceIndex <= 10)
+            targetY = 90f;
+        else if (spaceIndex >= 11 && spaceIndex <= 19)
+        {
+            targetY = 0f;
+            yIsZero = true;
+        }
+        else if (spaceIndex >= 20 && spaceIndex <= 29)
+            targetY = 90f;
+        else if (spaceIndex >= 30 && spaceIndex <= 37)
+        {
+            targetY = 0f;
+            yIsZero = true;
+        }
+        else
+        {
+            targetY = rot.eulerAngles.y;
+        }
+
+        float targetX = yIsZero ? 15f : rot.eulerAngles.x;
+        float targetZ = rot.eulerAngles.z;
+        Quaternion rotFinal = Quaternion.Euler(targetX, targetY, targetZ);
 
         if (houseCount <= 0)
         {
@@ -128,8 +159,8 @@ public class HouseVisualizer : MonoBehaviour
             {
                 var go = Instantiate(ownerOnlyPrefab, basePos, rot);
                 go.name = $"Owner_S{spaceIndex}";
-                go.transform.position = new Vector3(basePos.x, topY, basePos.z);
-                go.transform.rotation = rot;
+                go.transform.position = new Vector3(basePos.x, 0.5f, basePos.z);
+                go.transform.rotation = rotFinal;
                 go.transform.localScale = Vector3.one * buildingModelScale;
                 DisableColliders(go);
                 if (tintPrefabWithOwnerColor) ApplyColorToAllRenderers(go, ownerColor);
@@ -140,8 +171,9 @@ public class HouseVisualizer : MonoBehaviour
                 var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 sphere.name = $"Owner_S{spaceIndex}";
                 Vector3 pos = basePos;
-                pos.y = topY + sphereSize * 0.5f;
+                pos.y = 0.5f;
                 sphere.transform.position = pos;
+                sphere.transform.rotation = rotFinal;
                 sphere.transform.localScale = Vector3.one * sphereSize;
                 var col = sphere.GetComponent<Collider>();
                 if (col != null) col.enabled = false;
@@ -155,8 +187,8 @@ public class HouseVisualizer : MonoBehaviour
             {
                 var go = Instantiate(hotelPrefab, basePos, rot);
                 go.name = $"Hotel_S{spaceIndex}";
-                go.transform.position = new Vector3(basePos.x, topY, basePos.z);
-                go.transform.rotation = rot;
+                go.transform.position = new Vector3(basePos.x, 0.5f, basePos.z);
+                go.transform.rotation = rotFinal;
                 go.transform.localScale = Vector3.one * buildingModelScale;
                 DisableColliders(go);
                 if (tintPrefabWithOwnerColor) ApplyColorToAllRenderers(go, ownerColor);
@@ -168,8 +200,9 @@ public class HouseVisualizer : MonoBehaviour
                 hotel.name = $"Hotel_S{spaceIndex}";
                 float hotelH = cubeSize * 1.5f;
                 Vector3 pos = basePos;
-                pos.y = topY + hotelH * 0.5f;
+                pos.y = 0.5f;
                 hotel.transform.position = pos;
+                hotel.transform.rotation = rotFinal;
                 hotel.transform.localScale = new Vector3(cubeSize * 1.2f, hotelH * 0.5f, cubeSize * 1.2f);
                 var col = hotel.GetComponent<Collider>();
                 if (col != null) col.enabled = false;
@@ -185,8 +218,8 @@ public class HouseVisualizer : MonoBehaviour
             {
                 var go = Instantiate(prefab, basePos, rot);
                 go.name = $"House_S{spaceIndex}";
-                go.transform.position = new Vector3(basePos.x, topY, basePos.z);
-                go.transform.rotation = rot;
+                go.transform.position = new Vector3(basePos.x, 0.5f, basePos.z);
+                go.transform.rotation = rotFinal;
                 go.transform.localScale = Vector3.one * buildingModelScale;
                 DisableColliders(go);
                 if (tintPrefabWithOwnerColor) ApplyColorToAllRenderers(go, ownerColor);
@@ -196,12 +229,13 @@ public class HouseVisualizer : MonoBehaviour
             {
                 float totalWidth = (houseCount - 1) * spacing;
                 float startX = -totalWidth * 0.5f;
-                basePos.y = topY + cubeSize * 0.5f;
+                basePos.y = 0.5f;
                 for (int i = 0; i < houseCount; i++)
                 {
                     var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     cube.name = $"House_S{spaceIndex}_{i}";
                     cube.transform.position = basePos + right * (startX + i * spacing);
+                    cube.transform.rotation = rotFinal;
                     cube.transform.localScale = new Vector3(cubeSize, cubeSize, cubeSize);
                     var col = cube.GetComponent<Collider>();
                     if (col != null) col.enabled = false;

@@ -383,33 +383,40 @@ public class GameNetworkManager : NetworkManager
                     if (voluntary)
                         _voluntaryLeaveSteamIds.Remove(steamId);
 
-                    if (steamId != 0 && !voluntary)
+                    // Voluntary (UI'dan "Oyunu bırak") da olsa, match devam ederken aynı slota bot geçsin ve
+                    // oyuncu geri dönerse state geri yüklensin.
+                    // (GameOver durumunda gereksiz: zaten oyun bitti kabul edilir.)
+                    bool gameOver = GameTurnManager.Instance != null && GameTurnManager.Instance.winnerPlayerIndex >= 0;
+                    if (steamId != 0 && !gameOver)
                     {
-                        bool gameOver = GameTurnManager.Instance != null && GameTurnManager.Instance.winnerPlayerIndex >= 0;
-                        if (!gameOver)
+                        _disconnectedStates[steamId] = new PersistedPlayerState
                         {
-                            _disconnectedStates[steamId] = new PersistedPlayerState
-                            {
-                                playerIndex = player.playerIndex,
-                                currentSpaceIndex = player.currentSpaceIndex,
-                                selectedCharacterIndex = player.selectedCharacterIndex,
-                                selectedDiceIndex = player.selectedDiceIndex,
-                                money = player.money,
-                                disconnectedAt = Time.unscaledTime,
-                                steamName = player.steamName,
-                                hasPassedStart = player.hasPassedStart,
-                                isInJail = player.isInJail
-                            };
-                            StartCoroutine(SpawnBotAfterDisconnect(steamId, player));
-                        }
+                            playerIndex = player.playerIndex,
+                            currentSpaceIndex = player.currentSpaceIndex,
+                            selectedCharacterIndex = player.selectedCharacterIndex,
+                            selectedDiceIndex = player.selectedDiceIndex,
+                            money = player.money,
+                            disconnectedAt = Time.unscaledTime,
+                            steamName = player.steamName,
+                            hasPassedStart = player.hasPassedStart,
+                            isInJail = player.isInJail
+                        };
+                        StartCoroutine(SpawnBotAfterDisconnect(steamId, player));
                     }
 
                     _connectedPlayers.Remove(player);
                     Debug.Log($"[Network] Oyuncu ayrıldı ve listeden çıkarıldı. " +
                               $"Index: {player.playerIndex}" + (voluntary ? " (istemli)" : ""));
 
+                    // Bot state'i gelecek, bu yüzden voluntary için ekstra turn atlama yapmıyoruz.
+                    // Eğer bot spawn edilemeyecek durumda (örn. steamId=0 / gameOver) ise turn'u akıtmak için
+                    // turn handler'ı çağırıyoruz.
                     if (voluntary && NetworkServer.active && GameTurnManager.Instance != null)
-                        GameTurnManager.Instance.ServerHandlePlayerDisconnected(player.playerIndex);
+                    {
+                        bool spawnable = steamId != 0 && !gameOver;
+                        if (!spawnable)
+                            GameTurnManager.Instance.ServerHandlePlayerDisconnected(player.playerIndex);
+                    }
                 }
             }
         }
