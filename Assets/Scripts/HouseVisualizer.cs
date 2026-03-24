@@ -96,6 +96,60 @@ public class HouseVisualizer : MonoBehaviour
             _lastState.Remove(idx);
     }
 
+    /// <summary>
+    /// Ev FBX: her kare kendi konumunda dursun; rotasyon tahta kenarina gore (verdiginiz -90 / Y 90 veya 0).
+    /// Indeks araliklari BoardManager.CreatePlaceholderBoard ile ayni (36: 0-9,10-18,19-27,28-35 | 38: 0-10,11-19,20-29,30-37).
+    /// Onceki tek (x,z) tum o araliga uygulaniyordu — evler ust uste biniyordu; ayrica sahne 36 kare iken 28-37 hic yoktu.
+    /// </summary>
+    private static bool TryGetBoardEdgeHouseStyle(int spaceIndex, int spaceCount, out Quaternion rotation)
+    {
+        rotation = Quaternion.identity;
+        if (spaceCount <= 0 || spaceIndex < 0 || spaceIndex >= spaceCount)
+            return false;
+        if (spaceCount != 36 && spaceCount != 38)
+            return false;
+
+        int top = 8, right = 8, bottom = 8, left = 8;
+        if (spaceCount == 38)
+        {
+            top = 9;
+            bottom = 9;
+        }
+
+        int seg0End = top + 1;
+        if (spaceIndex <= seg0End)
+        {
+            rotation = Quaternion.Euler(-90f, 90f, 0f);
+            return true;
+        }
+
+        int seg1Start = top + 2;
+        int seg1End = seg1Start + right;
+        if (spaceIndex <= seg1End)
+        {
+            rotation = Quaternion.Euler(-90f, 0f, 0f);
+            return true;
+        }
+
+        int seg2Start = seg1End + 1;
+        int seg2End = seg2Start + bottom;
+        if (spaceIndex <= seg2End)
+        {
+            rotation = Quaternion.Euler(-90f, 90f, 0f);
+            return true;
+        }
+
+        int seg3Start = seg2End + 1;
+        int seg3End = seg3Start + left - 1;
+        if (spaceIndex <= seg3End)
+        {
+            rotation = Quaternion.Euler(-90f, 0f, 0f);
+            return true;
+        }
+
+        return false;
+    }
+
     private void RebuildVisualsForSpace(int spaceIndex, int houseCount, int ownerIndex)
     {
         ClearVisuals(spaceIndex);
@@ -218,8 +272,17 @@ public class HouseVisualizer : MonoBehaviour
             {
                 var go = Instantiate(prefab, basePos, rot);
                 go.name = $"House_S{spaceIndex}";
-                go.transform.position = new Vector3(basePos.x, 0.5f, basePos.z);
-                go.transform.rotation = rotFinal;
+                if (TryGetBoardEdgeHouseStyle(spaceIndex, boardManager.SpaceCount, out Quaternion edgeRot))
+                {
+                    Vector3 onBoard = boardManager.GetSpacePosition(spaceIndex);
+                    go.transform.position = new Vector3(onBoard.x, 2f, onBoard.z);
+                    go.transform.rotation = edgeRot;
+                }
+                else
+                {
+                    go.transform.position = new Vector3(basePos.x, 0.5f, basePos.z);
+                    go.transform.rotation = rotFinal;
+                }
                 go.transform.localScale = Vector3.one * buildingModelScale;
                 DisableColliders(go);
                 if (tintPrefabWithOwnerColor) ApplyColorToAllRenderers(go, ownerColor);

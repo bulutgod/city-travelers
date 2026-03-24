@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1b2c3d4e5f6478990abcdef12345678, type: 3}
+  m_Name: LobbyFriendsSidebarConfig
+  m_EditorClassIdentifier: Assembly-CSharp::LobbyFriendsSidebarConfig
+  sidebarWidth: 280
+  marginRight: 16
+  marginVertical: 24
+  panelBackgroundSprite: {fileID: 0}
+  panelColor: {r: 0.08, g: 0.12, b: 0.18, a: 0.92}
+  panelSliced: 1
+  rowHeight: 56
+  avatarSize: 48
+  avatarCornerRadius: 0.5
+  rowBackgroundSprite: {fileID: 0}
+  rowBackgroundColor: {r: 0, g: 0, b: 0, a: 0.15}
+  rowSliced: 1
+  avatarPlaceholderOnline: {r: 0.2, g: 0.55, b: 0.35, a: 1}
+  avatarPlaceholderOffline: {r: 0.35, g: 0.35, b: 0.4, a: 1}
+  inviteButtonSize: {x: 88, y: 36}
+  inviteButtonSprite: {fileID: 0}
+  inviteButtonDisabledSprite: {fileID: 0}
+  inviteColorNormal: {r: 0.25, g: 0.45, b: 0.65, a: 0.95}
+  inviteColorDisabled: {r: 0.25, g: 0.25, b: 0.28, a: 0.7}
+  inviteSliced: 1
+  titleText: "ARKADA\u015ELAR"
+  titleFontSize: 16
+  titleColor: {r: 1, g: 1, b: 1, a: 1}
+  nameFontSize: 13
+  statusFontSize: 11
+  nameColor: {r: 1, g: 1, b: 1, a: 1}
+  statusInLobby: {r: 0.5, g: 0.85, b: 1, a: 1}
+  statusOnline: {r: 0.65, g: 0.9, b: 0.7, a: 1}
+  statusOffline: {r: 0.65, g: 0.65, b: 0.7, a: 1}
+  inviteLabelColor: {r: 1, g: 1, b: 1, a: 1}
+  inviteLabelFontSize: 12
+  inviteLabelText: Davet
+  scrollTopOffset: 58
+  scrollBottomOffset: 8
+  scrollHorizontalPadding: 6

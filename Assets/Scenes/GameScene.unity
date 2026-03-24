@@ -693,7 +693,9 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "Kader \nAni"
+  m_text: 'KADER
+
+    ANI'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: c8446721331254129b8c044b7379b40f, type: 2}
   m_sharedMaterial: {fileID: 7585658370491590847, guid: c8446721331254129b8c044b7379b40f, type: 2}
@@ -5375,7 +5377,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 1, y: 11}
+  m_AnchoredPosition: {x: 1, y: 9}
   m_SizeDelta: {x: 50, y: 20}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &518285703
@@ -5398,7 +5400,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: New York
+  m_text: "NEW \nYORK"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: c8446721331254129b8c044b7379b40f, type: 2}
   m_sharedMaterial: {fileID: 7585658370491590847, guid: c8446721331254129b8c044b7379b40f, type: 2}
@@ -7557,12 +7559,12 @@ MonoBehaviour:
   sphereSize: 0.22
   spacing: 0.32
   edgeOffset: 0.55
-  ownerOnlyPrefab: {fileID: 919132149155446097, guid: c29422ab50f7b3342b63ebf03d978d9b, type: 3}
-  houseLevel1Prefab: {fileID: 919132149155446097, guid: 2ed7e10d3837cd044a0baa2aa87b3ec7, type: 3}
-  houseLevel2Prefab: {fileID: 919132149155446097, guid: 7d66d38cb23915e4583f8f09291eb064, type: 3}
-  houseLevel3Prefab: {fileID: 919132149155446097, guid: 85adfbf5a591ad94b98cce6fd58ea674, type: 3}
+  ownerOnlyPrefab: {fileID: 919132149155446097, guid: 0b28640bedda643b2874b8d70d73171f, type: 3}
+  houseLevel1Prefab: {fileID: 919132149155446097, guid: 0b28640bedda643b2874b8d70d73171f, type: 3}
+  houseLevel2Prefab: {fileID: 919132149155446097, guid: 0b28640bedda643b2874b8d70d73171f, type: 3}
+  houseLevel3Prefab: {fileID: 919132149155446097, guid: 0b28640bedda643b2874b8d70d73171f, type: 3}
   hotelPrefab: {fileID: 919132149155446097, guid: befc5c3cbfaee334f877e438670ecd4a, type: 3}
-  buildingModelScale: 0.5
+  buildingModelScale: 35
   tintPrefabWithOwnerColor: 1
 --- !u!114 &738075096
 MonoBehaviour:
@@ -7708,7 +7710,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Kumar
+  m_text: KUMAR
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: c8446721331254129b8c044b7379b40f, type: 2}
   m_sharedMaterial: {fileID: 7585658370491590847, guid: c8446721331254129b8c044b7379b40f, type: 2}
@@ -14474,7 +14476,9 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "Kader \nAni"
+  m_text: 'KADER
+
+    ANI'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: c8446721331254129b8c044b7379b40f, type: 2}
   m_sharedMaterial: {fileID: 7585658370491590847, guid: c8446721331254129b8c044b7379b40f, type: 2}

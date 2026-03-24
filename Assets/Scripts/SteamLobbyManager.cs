@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Threading.Tasks;
 using Mirror;
@@ -23,6 +24,14 @@ public class SteamLobbyManager : MonoBehaviour
     private bool _waitingForNewHostReconnect = false;
     public System.Action OnHostMigrationFinished;
     public bool InLobby => _inLobby;
+
+    /// <summary>Matchmaking lobisi (LobbyType metadata). Arkadas davet paneli bunu gizlemek icin kullanir.</summary>
+    public bool IsCurrentLobbyMatchmaking()
+    {
+        if (!_inLobby) return false;
+        string type = CurrentLobby.GetData("LobbyType");
+        return string.Equals(type, "Matchmaking", StringComparison.OrdinalIgnoreCase);
+    }
 
     private bool _isMatchmaking = false;
     public bool IsMatchmaking => _isMatchmaking;

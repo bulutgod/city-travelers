@@ -67,6 +67,10 @@ public class LobbyUINew : MonoBehaviour
     [Tooltip("2v2 Takımlı mod. Host oyunu başlatırken açıksa takım modu kullanılır (P0-P1 Takım 1, P2-P3 Takım 2).")]
     [SerializeField] private Toggle teamModeToggle;
 
+    [Header("Arkadaş listesi (lobi)")]
+    [Tooltip("Sprite ve boyutlar. Bos birakilirsa kod icindeki varsayilanlar. Sadece 'Arkadaşlarınla oyna' lobisinde gorunur; matchmaking'de gizlenir.")]
+    [SerializeField] private LobbyFriendsSidebarConfig friendsSidebarConfig;
+
     // -------------------------------------------------------
     // Private State
     // -------------------------------------------------------
@@ -85,6 +89,7 @@ public class LobbyUINew : MonoBehaviour
     };
 
     private Coroutine _refreshCoroutine;
+    private LobbyFriendsSidebar _friendsSidebar;
     private GameObject _durationRow;
     private Button _dur20Btn, _dur60Btn, _dur120Btn;
     private TextMeshProUGUI _durationLabel;
@@ -332,6 +337,7 @@ public class LobbyUINew : MonoBehaviour
         if (mainMenuPanel) mainMenuPanel.SetActive(false);
 
         EnsureDurationRow();
+        UpdateFriendsSidebarVisibility();
 
         if (playerCards != null)
         {
@@ -493,6 +499,47 @@ public class LobbyUINew : MonoBehaviour
             }
             startGameButton.interactable = allReady;
         }
+
+        UpdateFriendsSidebarVisibility();
+        if (_friendsSidebar != null && _friendsSidebar.gameObject.activeInHierarchy)
+            _friendsSidebar.MarkDirty();
+    }
+
+    /// <summary>Arkadas listesi yalnizca arkadas lobisinde; matchmaking lobisinde kapali.</summary>
+    private void UpdateFriendsSidebarVisibility()
+    {
+        if (lobbyPanel == null) return;
+        var mgr = SteamLobbyManager.Instance;
+        bool friendsLobby = mgr != null && mgr.InLobby && !mgr.IsCurrentLobbyMatchmaking();
+
+        if (!friendsLobby)
+        {
+            if (_friendsSidebar != null)
+                _friendsSidebar.gameObject.SetActive(false);
+            return;
+        }
+
+        EnsureFriendsSidebarInternal();
+        if (_friendsSidebar != null)
+        {
+            _friendsSidebar.gameObject.SetActive(true);
+            _friendsSidebar.ApplyConfig(friendsSidebarConfig);
+        }
+    }
+
+    private void EnsureFriendsSidebarInternal()
+    {
+        if (lobbyPanel == null) return;
+        if (_friendsSidebar == null)
+            _friendsSidebar = lobbyPanel.GetComponentInChildren<LobbyFriendsSidebar>(true);
+        if (_friendsSidebar != null)
+            return;
+
+        var go = new GameObject("FriendsSidebar");
+        go.transform.SetParent(lobbyPanel.transform, false);
+        go.transform.SetAsLastSibling();
+        _friendsSidebar = go.AddComponent<LobbyFriendsSidebar>();
+        _friendsSidebar.ApplyConfig(friendsSidebarConfig);
     }
 
     /// <summary>

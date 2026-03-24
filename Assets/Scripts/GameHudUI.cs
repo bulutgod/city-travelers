@@ -505,6 +505,34 @@ public class GameHudUI : MonoBehaviour
         return null;
     }
 
+    /// <summary>
+    /// Sahne prefab'larinda kose HUD kokunde Image olmayabiliyor; renk "Background" cocugunda.
+    /// root.GetComponent Image null ise sprite/renk hic degismez ve koseye gore sabit tasarim kalir.
+    /// </summary>
+    private static Image GetCornerHudBackgroundImage(GameObject root)
+    {
+        if (root == null) return null;
+        var img = root.GetComponent<Image>();
+        if (img != null) return img;
+        var bgTr = FindRecursive(root.transform, "Background");
+        if (bgTr != null)
+        {
+            img = bgTr.GetComponent<Image>();
+            if (img != null) return img;
+        }
+        var imgs = root.GetComponentsInChildren<Image>(true);
+        if (imgs == null || imgs.Length == 0) return null;
+        Image best = null;
+        float bestArea = 0f;
+        foreach (var i in imgs)
+        {
+            if (i == null) continue;
+            float a = i.rectTransform.rect.width * i.rectTransform.rect.height;
+            if (a > bestArea) { bestArea = a; best = i; }
+        }
+        return best;
+    }
+
     private static GameObject GetSlotRootFromToggle(Toggle t)
     {
         if (t == null) return null;
@@ -2211,7 +2239,7 @@ public class GameHudUI : MonoBehaviour
 
             _playerCornerHuds[slot].root.SetActive(true);
 
-            var bg = _playerCornerHuds[slot].root.GetComponent<Image>();
+            var bg = GetCornerHudBackgroundImage(_playerCornerHuds[slot].root);
             if (bg != null)
             {
                 if (isTeamGame)
