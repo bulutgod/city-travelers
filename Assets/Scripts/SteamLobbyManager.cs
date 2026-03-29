@@ -13,6 +13,8 @@ public class SteamLobbyManager : MonoBehaviour
 
     private const string PrefLastLobbyId = "LastLobbyId";
     private const string PrefLastHostSteamId = "LastHostSteamId";
+    private const string PrefLastLobbySavedAtUnix = "LastLobbySavedAtUnix";
+    private const long ReconnectDataLifetimeSeconds = 180;
 
     [Header("Lobi Ayarlar�")]
     [SerializeField] private int maxPlayers = 4;
@@ -95,6 +97,13 @@ public class SteamLobbyManager : MonoBehaviour
     private void OnDestroy()
     {
         UnregisterCallbacks();
+    }
+
+    private void OnApplicationQuit()
+    {
+        // Uygulama kapanirken reconnect kaydini "simdi"ye cek.
+        // Boylece panel maksimum 3 dakika gecerli kalir.
+        TouchLastLobbyTimestamp();
     }
 
     #endregion
@@ -277,7 +286,30 @@ public class SteamLobbyManager : MonoBehaviour
 
     public bool HasLastLobbyToReconnect()
     {
-        return PlayerPrefs.HasKey(PrefLastLobbyId) && ulong.TryParse(PlayerPrefs.GetString(PrefLastLobbyId, "0"), out ulong id) && id != 0;
+        if (!PlayerPrefs.HasKey(PrefLastLobbyId) ||
+            !ulong.TryParse(PlayerPrefs.GetString(PrefLastLobbyId, "0"), out ulong lobbyId) ||
+            lobbyId == 0)
+        {
+            return false;
+        }
+
+        if (!PlayerPrefs.HasKey(PrefLastLobbySavedAtUnix) ||
+            !long.TryParse(PlayerPrefs.GetString(PrefLastLobbySavedAtUnix, "0"), out long savedAtUnix) ||
+            savedAtUnix <= 0)
+        {
+            ClearLastLobbyPrefs();
+            return false;
+        }
+
+        long nowUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        long ageSeconds = Math.Max(0, nowUnix - savedAtUnix);
+        if (ageSeconds > ReconnectDataLifetimeSeconds)
+        {
+            ClearLastLobbyPrefs();
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>Reconnect basarili oldugunda GameNetworkManager tarafindan cagrilir.</summary>
@@ -545,13 +577,30 @@ public class SteamLobbyManager : MonoBehaviour
         if (lobbyId == 0) return;
         PlayerPrefs.SetString(PrefLastLobbyId, lobbyId.ToString());
         if (hostSteamId != 0) PlayerPrefs.SetString(PrefLastHostSteamId, hostSteamId.ToString());
+        PlayerPrefs.SetString(PrefLastLobbySavedAtUnix, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString());
         PlayerPrefs.Save();
+    }
+
+    private void TouchLastLobbyTimestamp()
+    {
+        if (!PlayerPrefs.HasKey(PrefLastLobbyId)) return;
+        if (!ulong.TryParse(PlayerPrefs.GetString(PrefLastLobbyId, "0"), out ulong lobbyId) || lobbyId == 0) return;
+
+        ulong hostSteamId = 0;
+        string hostFromPrefs = PlayerPrefs.GetString(PrefLastHostSteamId, "0");
+        if (!ulong.TryParse(hostFromPrefs, out hostSteamId))
+            hostSteamId = 0;
+        if (hostSteamId == 0 && SteamClient.IsValid)
+            hostSteamId = SteamClient.SteamId.Value;
+
+        SaveLastLobbyPrefs(lobbyId, hostSteamId);
     }
 
     private void ClearLastLobbyPrefs()
     {
         PlayerPrefs.DeleteKey(PrefLastLobbyId);
         PlayerPrefs.DeleteKey(PrefLastHostSteamId);
+        PlayerPrefs.DeleteKey(PrefLastLobbySavedAtUnix);
         PlayerPrefs.Save();
     }
 

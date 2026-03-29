@@ -14,6 +14,7 @@ using UnityEngine.UI;
 public sealed class LobbyFriendsSidebar : MonoBehaviour
 {
     private const float DefaultDebounce = 0.35f;
+    private const float InviteAckDurationSeconds = 60f;
 
     [SerializeField] private float refreshDebounceSeconds = DefaultDebounce;
 
@@ -27,6 +28,9 @@ public sealed class LobbyFriendsSidebar : MonoBehaviour
     private bool _built;
     private bool _dirty = true;
     private float _nextRebuildTime;
+
+    /// <summary>Basarili davet sonrasi "Davet edildi" gosterimi (unscaled time).</summary>
+    private readonly Dictionary<ulong, float> _inviteSentAtUnscaled = new Dictionary<ulong, float>();
 
     private LobbyFriendsSidebarConfig C =>
         _userConfig != null
@@ -60,6 +64,20 @@ public sealed class LobbyFriendsSidebar : MonoBehaviour
 
     private void Update()
     {
+        if (_inviteSentAtUnscaled.Count > 0)
+        {
+            var expired = new List<ulong>();
+            foreach (var kv in _inviteSentAtUnscaled)
+            {
+                if (Time.unscaledTime - kv.Value >= InviteAckDurationSeconds)
+                    expired.Add(kv.Key);
+            }
+            foreach (var id in expired)
+                _inviteSentAtUnscaled.Remove(id);
+            if (expired.Count > 0)
+                _dirty = true;
+        }
+
         if (!_dirty || Time.unscaledTime < _nextRebuildTime)
             return;
         _nextRebuildTime = Time.unscaledTime + refreshDebounceSeconds;
@@ -300,7 +318,12 @@ public sealed class LobbyFriendsSidebar : MonoBehaviour
         var statusGo = new GameObject("Status");
         statusGo.transform.SetParent(textCol.transform, false);
         var statusTmp = statusGo.AddComponent<TextMeshProUGUI>();
-        bool inLobby = memberIds.Contains(friend.Id.Value);
+        ulong idVal = friend.Id.Value;
+        bool inLobby = memberIds.Contains(idVal);
+        bool showInviteAck = !inLobby &&
+                             _inviteSentAtUnscaled.TryGetValue(idVal, out float sentAt) &&
+                             Time.unscaledTime - sentAt < InviteAckDurationSeconds;
+
         if (inLobby)
             statusTmp.text = "Lobide";
         else if (friend.IsOnline)
@@ -320,7 +343,7 @@ public sealed class LobbyFriendsSidebar : MonoBehaviour
         var inviteBtn = inviteGo.AddComponent<Button>();
         inviteBtn.targetGraphic = inviteImg;
 
-        bool canInvite = lobby.HasValue && !inLobby;
+        bool canInvite = lobby.HasValue && !inLobby && !showInviteAck;
         ApplyInviteVisual(inviteImg, cfg, canInvite);
 
         var inviteLabelGo = new GameObject("Label");
@@ -331,20 +354,25 @@ public sealed class LobbyFriendsSidebar : MonoBehaviour
         inviteLabelRt.offsetMin = Vector2.zero;
         inviteLabelRt.offsetMax = Vector2.zero;
         var inviteTxt = inviteLabelGo.AddComponent<TextMeshProUGUI>();
-        inviteTxt.text = cfg.inviteLabelText;
+        inviteTxt.text = showInviteAck ? "Davet edildi" : cfg.inviteLabelText;
         inviteTxt.fontSize = cfg.inviteLabelFontSize;
         inviteTxt.alignment = TextAlignmentOptions.Center;
-        inviteTxt.color = cfg.inviteLabelColor;
+        inviteTxt.color = showInviteAck ? cfg.statusOnline : cfg.inviteLabelColor;
 
         inviteBtn.interactable = canInvite;
 
-        ulong idVal = friend.Id.Value;
         inviteBtn.onClick.AddListener(() =>
         {
             if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
             var m = SteamLobbyManager.Instance;
             if (m == null || !m.InLobby) return;
-            m.CurrentLobby.InviteFriend(new SteamId { Value = idVal });
+            bool ok = m.CurrentLobby.InviteFriend(new SteamId { Value = idVal });
+            if (ok)
+            {
+                _inviteSentAtUnscaled[idVal] = Time.unscaledTime;
+                _nextRebuildTime = 0f;
+                _dirty = true;
+            }
         });
 
         row.AddComponent<FriendRowTextureCleanup>().Target = raw;

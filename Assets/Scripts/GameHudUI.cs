@@ -99,7 +99,7 @@ public class GameHudUI : MonoBehaviour
     private bool _cardDismissed;
     private float _lastShownCardTime = -1f;
     private float _cardFlipProgress = 1f;
-    private const float CardShowDuration = 20f;
+    private const float CardShowDuration = 3f;
     private const float CardFlipAnimDuration = 0.35f;
 
     private GameObject _statsPanel;
@@ -553,6 +553,29 @@ public class GameHudUI : MonoBehaviour
 
     private Toggle EnsureToggleForSlot(Transform slotParent)
     {
+        if (slotParent == null) return null;
+
+        // Scene tasarimindaki mevcut Toggle'i her zaman tercih et.
+        var existing = slotParent.GetComponentInChildren<Toggle>(true);
+        if (existing != null) return existing;
+
+        // Bazi tasarimlarda Toggle dogrudan "Checkmark" objesi uzerinde tutuluyor.
+        var checkmarkTr = FindRecursive(slotParent, "Checkmark");
+        if (checkmarkTr != null)
+        {
+            var checkmarkImg = checkmarkTr.GetComponent<Image>();
+            if (checkmarkImg == null)
+                checkmarkImg = checkmarkTr.gameObject.AddComponent<Image>();
+
+            var checkmarkToggle = checkmarkTr.GetComponent<Toggle>();
+            if (checkmarkToggle == null)
+                checkmarkToggle = checkmarkTr.gameObject.AddComponent<Toggle>();
+
+            if (checkmarkToggle.targetGraphic == null) checkmarkToggle.targetGraphic = checkmarkImg;
+            if (checkmarkToggle.graphic == null) checkmarkToggle.graphic = checkmarkImg;
+            return checkmarkToggle;
+        }
+
         var toggleGo = new GameObject("Toggle");
         toggleGo.transform.SetParent(slotParent, false);
         var toggleRt = toggleGo.AddComponent<RectTransform>();
@@ -683,7 +706,8 @@ public class GameHudUI : MonoBehaviour
                     _houseToggles = new Toggle[5];
                     for (int i = 0; i < 5; i++) {
                         _houseBoxes[i] = houseRowT.GetChild(i).gameObject;
-                        var existing = _houseBoxes[i].GetComponentInChildren<Toggle>(true);
+                        var checkmarkToggle = FindRecursive(_houseBoxes[i].transform, "Checkmark")?.GetComponent<Toggle>();
+                        var existing = checkmarkToggle != null ? checkmarkToggle : _houseBoxes[i].GetComponentInChildren<Toggle>(true);
                         if (existing != null) {
                             _houseToggles[i] = existing;
                         } else {
@@ -1600,6 +1624,7 @@ public class GameHudUI : MonoBehaviour
         okTxt.rectTransform.offsetMin = Vector2.zero;
         okTxt.rectTransform.offsetMax = Vector2.zero;
         _cardOkButton.onClick.AddListener(OnCardOkClicked);
+        _cardOkButton.gameObject.SetActive(false);
 
         _cardPanel.SetActive(false);
     }

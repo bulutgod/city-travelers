@@ -106,7 +106,7 @@ public class GameTurnManager : NetworkBehaviour
     private readonly Dictionary<int, int> _jailRollAttempts = new Dictionary<int, int>();
     /// <summary> 3 denemede çift atamadıysa sıra tekrar gelince attığı zarla çıkacak. </summary>
     private readonly Dictionary<int, bool> _jailExitWithNextRoll = new Dictionary<int, bool>();
-    /// <summary> "Hapishaneye Git" karesine zarla gelince: ilk turda çift zar ile çıkış yok (en az 1 tur hapis). </summary>
+    /// <summary> Hapis olarak içeri giren oyuncu ilk hapis turunda çift zar atsa da çıkamaz (en az 1 tur içeride kalır). </summary>
     private readonly Dictionary<int, bool> _jailSkipFirstDoublesExit = new Dictionary<int, bool>();
     /// <summary> Son tur gecis zamani (Server). minTurnStartDelay dolana kadar zar atilamaz. </summary>
     private float _turnStartTime;
@@ -404,7 +404,7 @@ public class GameTurnManager : NetworkBehaviour
     }
 
     [Server]
-    private void SendToJail(PlayerObject requester, bool fromTripleDoubles = false, bool fromLandingOnGoToJail = false)
+    private void SendToJail(PlayerObject requester, bool fromTripleDoubles = false, bool requireFullJailTurn = false, string customNotification = null)
     {
         int jailIndex = GetJailSpaceIndex();
         if (jailIndex < 0)
@@ -419,12 +419,14 @@ public class GameTurnManager : NetworkBehaviour
             requester.isInJail = true;
             _jailRollAttempts[requester.playerIndex] = 0;
             _jailExitWithNextRoll.Remove(requester.playerIndex);
-            if (fromLandingOnGoToJail)
+            if (requireFullJailTurn)
                 _jailSkipFirstDoublesExit[requester.playerIndex] = true;
             else
                 _jailSkipFirstDoublesExit.Remove(requester.playerIndex);
         }
-        if (fromTripleDoubles)
+        if (!string.IsNullOrWhiteSpace(customNotification))
+            RpcShowNotification(customNotification);
+        else if (fromTripleDoubles)
             RpcShowNotification(requester != null
                 ? $"{requester.steamName} üst üste {doublesCountForJail}. çift zarı attı - hapishaneye gitti!"
                 : $"Üst üste {doublesCountForJail} çift zar - hapishaneye!");
@@ -531,6 +533,7 @@ public class GameTurnManager : NetworkBehaviour
             requester.isInJail = false;
             _jailRollAttempts.Remove(requester.playerIndex);
             _jailExitWithNextRoll.Remove(requester.playerIndex);
+            _jailSkipFirstDoublesExit.Remove(requester.playerIndex);
         }
         RpcShowNotification(requester != null ? $"{requester.steamName} hapisten çıktı, attığı zarla ilerliyor." : "Hapisten çıkıldı.");
         StartCoroutine(ServerRollAndMove(requester, roll, dice1, dice2));
@@ -743,10 +746,18 @@ public class GameTurnManager : NetworkBehaviour
                 RpcShowNotification($"Gündem: {gundemCard.text}");
                 break;
             case SpaceInfo.SpaceType.Jail:
-                RpcShowNotification($"{requester.steamName} hapishanede ziyaret");
-                break;
+                SendToJail(
+                    requester,
+                    fromTripleDoubles: false,
+                    requireFullJailTurn: true,
+                    customNotification: $"{requester.steamName} hapishane karesine indi ve içeri alındı!");
+                yield break;
             case SpaceInfo.SpaceType.GoToJail:
-                SendToJail(requester, fromTripleDoubles: false, fromLandingOnGoToJail: true);
+                SendToJail(
+                    requester,
+                    fromTripleDoubles: false,
+                    requireFullJailTurn: true,
+                    customNotification: $"{requester.steamName} Hapishaneye Gitti karesine indi!");
                 yield break;
             default:
                 // Mülk/kira mantığı
@@ -962,6 +973,7 @@ public class GameTurnManager : NetworkBehaviour
         requester.isInJail = false;
         _jailRollAttempts.Remove(requester.playerIndex);
         _jailExitWithNextRoll.Remove(requester.playerIndex);
+        _jailSkipFirstDoublesExit.Remove(requester.playerIndex);
 
         string name = string.IsNullOrWhiteSpace(requester.steamName) ? $"Oyuncu {requester.playerIndex}" : requester.steamName;
         if (fee > 0)
@@ -1218,6 +1230,7 @@ public class GameTurnManager : NetworkBehaviour
         if (bankruptPlayerIndices.Contains(player.playerIndex)) return;
         _jailRollAttempts.Remove(player.playerIndex);
         _jailExitWithNextRoll.Remove(player.playerIndex);
+        _jailSkipFirstDoublesExit.Remove(player.playerIndex);
         bankruptPlayerIndices.Add(player.playerIndex);
         RpcPlayBankrupt();
         string msg = !string.IsNullOrEmpty(reason)
