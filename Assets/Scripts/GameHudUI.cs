@@ -766,7 +766,7 @@ public class GameHudUI : MonoBehaviour
             if (ayarlar == null) { var btns = _escapeMenuPanel.GetComponentsInChildren<Button>(); if (btns.Length > 1) ayarlar = btns[1]; }
             if (oyunuBirak == null) { var btns = _escapeMenuPanel.GetComponentsInChildren<Button>(); if (btns.Length > 2) oyunuBirak = btns[2]; }
             if (devam != null) devam.onClick.AddListener(() => { if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick(); HideEscapeMenu(); });
-            if (ayarlar != null) ayarlar.onClick.AddListener(() => { if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick(); HideEscapeMenu(); OnSettingsClicked(); });
+            if (ayarlar != null) ayarlar.onClick.AddListener(() => { if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick(); HideEscapeMenu(); SettingsUI.ShowPanel(); });
             if (oyunuBirak != null) oyunuBirak.onClick.AddListener(() => { if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick(); HideEscapeMenu(); OnLeaveGameClicked(); });
         }
         if (_escapeMenuBackdrop != null) _escapeMenuBackdrop.SetActive(false);
@@ -855,7 +855,7 @@ public class GameHudUI : MonoBehaviour
         {
             if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
             HideEscapeMenu();
-            if (SettingsUI.Instance != null) SettingsUI.Instance.Show();
+            SettingsUI.ShowPanel();
         });
 
         var leaveBtn2 = CreateMenuButton(_escapeMenuPanel.transform, "Oyunu Bırak", btnY - btnSpacing * 2);
@@ -992,7 +992,7 @@ public class GameHudUI : MonoBehaviour
     private void OnSettingsClicked()
     {
         if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
-        if (SettingsUI.Instance != null) SettingsUI.Instance.Show();
+        SettingsUI.ShowPanel();
     }
 
     private void EnsureEventSystem()

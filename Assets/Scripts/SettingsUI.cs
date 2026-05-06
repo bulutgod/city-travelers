@@ -3,18 +3,55 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Ayarlar paneli: ses seviyesi, tam ekran. Kod ile olusturulur, Inspector referansi gerekmez.
+/// Ayarlar paneli: ses ve grafik sekmeleri. Kod ile olusturulur, Inspector referansi gerekmez.
 /// SettingsUI.Instance.Show() ile acilir.
 /// </summary>
 public class SettingsUI : MonoBehaviour
 {
     public static SettingsUI Instance { get; private set; }
 
+    [Header("Sekme Sprite'lari")]
+    [Tooltip("Aktif sekme butonuna verilecek sprite. Bos kalirsa renk kullanilir.")]
+    public Sprite activeTabSprite;
+    [Tooltip("Pasif sekme butonuna verilecek sprite. Bos kalirsa renk kullanilir.")]
+    public Sprite inactiveTabSprite;
+
     private GameObject _panel;
     private GameObject _backdrop;
+    private GameObject _audioContent;
+    private GameObject _graphicsContent;
+    private Image _audioTabImage;
+    private Image _graphicsTabImage;
+    private TextMeshProUGUI _audioTabText;
+    private TextMeshProUGUI _graphicsTabText;
     private Slider _sfxSlider;
     private Slider _musicSlider;
     private Toggle _fullscreenToggle;
+    private TextMeshProUGUI _qualityButtonText;
+    private SettingsTab _currentTab = SettingsTab.Audio;
+
+    private enum SettingsTab
+    {
+        Audio,
+        Graphics
+    }
+
+    public static SettingsUI EnsureInstance()
+    {
+        if (Instance != null) return Instance;
+
+        var existing = FindFirstObjectByType<SettingsUI>();
+        if (existing != null) return existing;
+
+        var go = new GameObject("SettingsUI");
+        return go.AddComponent<SettingsUI>();
+    }
+
+    public static void ShowPanel()
+    {
+        var settings = EnsureInstance();
+        if (settings != null) settings.Show();
+    }
 
     private void Awake()
     {
@@ -46,7 +83,7 @@ public class SettingsUI : MonoBehaviour
         panelRt.anchorMin = new Vector2(0.5f, 0.5f);
         panelRt.anchorMax = new Vector2(0.5f, 0.5f);
         panelRt.pivot = new Vector2(0.5f, 0.5f);
-        panelRt.sizeDelta = new Vector2(400, 320);
+        panelRt.sizeDelta = new Vector2(460, 360);
 
         var bg = _panel.AddComponent<Image>();
         bg.color = new Color(0.1f, 0.1f, 0.15f, 0.98f);
@@ -60,11 +97,18 @@ public class SettingsUI : MonoBehaviour
         titleRt.sizeDelta = new Vector2(360, 40);
         title.transform.SetParent(_panel.transform, false);
 
-        _sfxSlider = CreateSlider(_panel.transform, "SFX", 0, -70, AudioManager.Instance != null ? AudioManager.Instance.sfxVolume : 0.7f);
-        _musicSlider = CreateSlider(_panel.transform, "Muzik", 1, -130, AudioManager.Instance != null ? AudioManager.Instance.musicVolume : 0.35f);
-        _fullscreenToggle = CreateToggle(_panel.transform, "Tam Ekran", 2, -180);
+        CreateTabs(_panel.transform);
 
-        var closeBtn = CreateButton(_panel.transform, "Kapat", 0, -250);
+        _audioContent = CreateContentRoot(_panel.transform, "AudioContent");
+        _graphicsContent = CreateContentRoot(_panel.transform, "GraphicsContent");
+
+        _sfxSlider = CreateSlider(_audioContent.transform, "SFX", -20, AudioManager.Instance != null ? AudioManager.Instance.sfxVolume : 0.7f);
+        _musicSlider = CreateSlider(_audioContent.transform, "Muzik", -80, AudioManager.Instance != null ? AudioManager.Instance.musicVolume : 0.35f);
+
+        _fullscreenToggle = CreateToggle(_graphicsContent.transform, "Tam Ekran", -20);
+        CreateQualityButton(_graphicsContent.transform, "Grafik Kalitesi", -80);
+
+        var closeBtn = CreateButton(_panel.transform, "Kapat", -286);
         closeBtn.onClick.AddListener(() =>
         {
             if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
@@ -87,6 +131,7 @@ public class SettingsUI : MonoBehaviour
 
         _panel.SetActive(false);
         _backdrop.SetActive(false);
+        SelectTab(SettingsTab.Audio, false);
     }
 
     private void UpdateSliderValues()
@@ -96,7 +141,68 @@ public class SettingsUI : MonoBehaviour
         if (_musicSlider != null) _musicSlider.SetValueWithoutNotify(AudioManager.Instance.musicVolume);
     }
 
-    private Slider CreateSlider(Transform parent, string label, int order, float y, float value)
+    private void UpdateGraphicsValues()
+    {
+        if (_fullscreenToggle != null) _fullscreenToggle.SetIsOnWithoutNotify(Screen.fullScreen);
+        if (_qualityButtonText != null) _qualityButtonText.text = GetQualityLabel();
+    }
+
+    private void CreateTabs(Transform parent)
+    {
+        CreateTabButton(parent, "AudioTabButton", "Ses", new Vector2(-105, -74), SettingsTab.Audio, out _audioTabImage, out _audioTabText);
+        CreateTabButton(parent, "GraphicsTabButton", "Grafik", new Vector2(105, -74), SettingsTab.Graphics, out _graphicsTabImage, out _graphicsTabText);
+    }
+
+    private Button CreateTabButton(Transform parent, string name, string text, Vector2 pos, SettingsTab tab, out Image image, out TextMeshProUGUI label)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+
+        var rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 1);
+        rt.anchorMax = new Vector2(0.5f, 1);
+        rt.pivot = new Vector2(0.5f, 1);
+        rt.anchoredPosition = pos;
+        rt.sizeDelta = new Vector2(180, 42);
+
+        image = go.AddComponent<Image>();
+        image.color = new Color(0.22f, 0.26f, 0.34f, 0.95f);
+
+        var button = go.AddComponent<Button>();
+        button.targetGraphic = image;
+        button.onClick.AddListener(() =>
+        {
+            if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
+            SelectTab(tab, true);
+        });
+
+        label = CreateTmp(go.transform, "Text", text, 20);
+        var labelRt = label.rectTransform;
+        labelRt.anchorMin = Vector2.zero;
+        labelRt.anchorMax = Vector2.one;
+        labelRt.offsetMin = Vector2.zero;
+        labelRt.offsetMax = Vector2.zero;
+        label.alignment = TextAlignmentOptions.Center;
+
+        return button;
+    }
+
+    private GameObject CreateContentRoot(Transform parent, string name)
+    {
+        var root = new GameObject(name);
+        root.transform.SetParent(parent, false);
+
+        var rt = root.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 1);
+        rt.anchorMax = new Vector2(0.5f, 1);
+        rt.pivot = new Vector2(0.5f, 1);
+        rt.anchoredPosition = new Vector2(0, -122);
+        rt.sizeDelta = new Vector2(400, 145);
+
+        return root;
+    }
+
+    private Slider CreateSlider(Transform parent, string label, float y, float value)
     {
         var row = new GameObject($"Row_{label}");
         row.transform.SetParent(parent, false);
@@ -186,7 +292,7 @@ public class SettingsUI : MonoBehaviour
         return slider;
     }
 
-    private Toggle CreateToggle(Transform parent, string label, int order, float y)
+    private Toggle CreateToggle(Transform parent, string label, float y)
     {
         var row = new GameObject($"Toggle_{label}");
         row.transform.SetParent(parent, false);
@@ -241,7 +347,63 @@ public class SettingsUI : MonoBehaviour
         return toggle;
     }
 
-    private Button CreateButton(Transform parent, string text, int order, float y)
+    private Button CreateQualityButton(Transform parent, string label, float y)
+    {
+        var row = new GameObject($"Quality_{label}");
+        row.transform.SetParent(parent, false);
+
+        var rowRt = row.AddComponent<RectTransform>();
+        rowRt.anchorMin = new Vector2(0.5f, 1);
+        rowRt.anchorMax = new Vector2(0.5f, 1);
+        rowRt.pivot = new Vector2(0.5f, 1);
+        rowRt.anchoredPosition = new Vector2(0, y);
+        rowRt.sizeDelta = new Vector2(340, 42);
+
+        var lbl = CreateTmp(row.transform, "Label", label, 18);
+        var lblRt = lbl.rectTransform;
+        lblRt.anchorMin = new Vector2(0, 0.5f);
+        lblRt.anchorMax = new Vector2(0, 0.5f);
+        lblRt.pivot = new Vector2(0, 0.5f);
+        lblRt.anchoredPosition = new Vector2(16, 0);
+        lblRt.sizeDelta = new Vector2(160, 36);
+
+        var buttonGo = new GameObject("QualityButton");
+        buttonGo.transform.SetParent(row.transform, false);
+        var buttonRt = buttonGo.AddComponent<RectTransform>();
+        buttonRt.anchorMin = new Vector2(1, 0.5f);
+        buttonRt.anchorMax = new Vector2(1, 0.5f);
+        buttonRt.pivot = new Vector2(1, 0.5f);
+        buttonRt.anchoredPosition = new Vector2(-16, 0);
+        buttonRt.sizeDelta = new Vector2(150, 34);
+
+        var image = buttonGo.AddComponent<Image>();
+        image.color = new Color(0.22f, 0.24f, 0.3f, 1f);
+
+        var button = buttonGo.AddComponent<Button>();
+        button.targetGraphic = image;
+        button.onClick.AddListener(() =>
+        {
+            var qualityNames = QualitySettings.names;
+            if (qualityNames == null || qualityNames.Length == 0) return;
+
+            int next = (QualitySettings.GetQualityLevel() + 1) % qualityNames.Length;
+            QualitySettings.SetQualityLevel(next, true);
+            UpdateGraphicsValues();
+            if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
+        });
+
+        _qualityButtonText = CreateTmp(buttonGo.transform, "Text", GetQualityLabel(), 16);
+        var textRt = _qualityButtonText.rectTransform;
+        textRt.anchorMin = Vector2.zero;
+        textRt.anchorMax = Vector2.one;
+        textRt.offsetMin = new Vector2(8, 0);
+        textRt.offsetMax = new Vector2(-8, 0);
+        _qualityButtonText.alignment = TextAlignmentOptions.Center;
+
+        return button;
+    }
+
+    private Button CreateButton(Transform parent, string text, float y)
     {
         var go = new GameObject("Button");
         go.transform.SetParent(parent, false);
@@ -268,6 +430,51 @@ public class SettingsUI : MonoBehaviour
         return btn;
     }
 
+    private void SelectTab(SettingsTab tab, bool updateContent)
+    {
+        _currentTab = tab;
+        if (_audioContent != null) _audioContent.SetActive(tab == SettingsTab.Audio);
+        if (_graphicsContent != null) _graphicsContent.SetActive(tab == SettingsTab.Graphics);
+
+        ApplyTabVisual(_audioTabImage, _audioTabText, tab == SettingsTab.Audio);
+        ApplyTabVisual(_graphicsTabImage, _graphicsTabText, tab == SettingsTab.Graphics);
+
+        if (updateContent)
+        {
+            UpdateSliderValues();
+            UpdateGraphicsValues();
+        }
+    }
+
+    private static string GetQualityLabel()
+    {
+        var qualityNames = QualitySettings.names;
+        if (qualityNames == null || qualityNames.Length == 0)
+            return "Varsayilan";
+
+        int index = Mathf.Clamp(QualitySettings.GetQualityLevel(), 0, qualityNames.Length - 1);
+        return qualityNames[index];
+    }
+
+    private void ApplyTabVisual(Image image, TextMeshProUGUI text, bool isActive)
+    {
+        if (image != null)
+        {
+            image.sprite = isActive ? activeTabSprite : inactiveTabSprite;
+            image.color = isActive
+                ? new Color(0.86f, 0.88f, 0.92f, 1f)
+                : new Color(0.22f, 0.26f, 0.34f, 0.95f);
+        }
+
+        if (text != null)
+        {
+            text.color = isActive
+                ? new Color(0.05f, 0.06f, 0.08f, 1f)
+                : new Color(0.78f, 0.82f, 0.9f, 1f);
+            text.fontStyle = isActive ? FontStyles.Bold : FontStyles.Normal;
+        }
+    }
+
     private static TextMeshProUGUI CreateTmp(Transform parent, string name, string text, int fontSize)
     {
         var go = new GameObject(name);
@@ -285,6 +492,8 @@ public class SettingsUI : MonoBehaviour
     {
         if (_panel == null) return;
         UpdateSliderValues();
+        UpdateGraphicsValues();
+        SelectTab(_currentTab, false);
         _panel.SetActive(true);
         if (_backdrop != null) _backdrop.SetActive(true);
     }
