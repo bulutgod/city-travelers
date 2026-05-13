@@ -9,11 +9,11 @@ using UnityEngine.UI;
 public class AvatarMaskConfig : MonoBehaviour
 {
     [Tooltip("Açık = avatar köşeli (düz dikdörtgen, maske yok). Kapalı = Corner Radius ile daire/yuvarlatılmış.")]
-    [SerializeField] private bool koseeli = true;
+    [SerializeField] private bool koseeli = false;
 
     [Tooltip("Sadece Köşeli kapalıyken kullanılır. 0.5 = daire, küçük değer = yuvarlatılmış dikdörtgen.")]
     [Range(0.01f, 0.5f)]
-    [SerializeField] private float cornerRadius = 0.15f;
+    [SerializeField] private float cornerRadius = 0.5f;
 
     /// <summary>Inspector'daki Köşeli değeri.</summary>
     public bool Koseeli => koseeli;

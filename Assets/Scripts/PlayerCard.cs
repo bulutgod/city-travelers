@@ -48,11 +48,13 @@ public class PlayerCard : MonoBehaviour
             {
                 avatarImage.texture = player.avatarTexture;
                 avatarImage.color = Color.white;
+                AvatarCircleMask.ApplyTo(avatarImage, 0.5f);
             }
             else
             {
                 avatarImage.texture = null;
                 avatarImage.color = new Color(1f, 1f, 1f, 0.1f);
+                AvatarCircleMask.ApplyTo(avatarImage, 0.5f);
             }
         }
 
@@ -106,6 +108,7 @@ public class PlayerCard : MonoBehaviour
         {
             avatarImage.texture = null;
             avatarImage.color = new Color(1f, 1f, 1f, 0.15f);
+            AvatarCircleMask.ApplyTo(avatarImage, 0.5f);
         }
     }
 }

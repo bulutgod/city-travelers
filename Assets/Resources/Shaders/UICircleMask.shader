@@ -85,21 +85,12 @@ Shader "UI/CircleMask"
                 float2 uv = i.texcoord;
                 float r = _CornerRadius;
 
-                // Yuvarlatilmis dikdortgen: merkez alan + 4 kose dairesi
-                bool inside = false;
-                if (uv.x >= r && uv.x <= 1.0 - r && uv.y >= r && uv.y <= 1.0 - r)
-                    inside = true;
-                else if (uv.x < r && uv.y < r)
-                    inside = distance(uv, float2(r, r)) <= r;
-                else if (uv.x > 1.0 - r && uv.y < r)
-                    inside = distance(uv, float2(1.0 - r, r)) <= r;
-                else if (uv.x < r && uv.y > 1.0 - r)
-                    inside = distance(uv, float2(r, 1.0 - r)) <= r;
-                else if (uv.x > 1.0 - r && uv.y > 1.0 - r)
-                    inside = distance(uv, float2(1.0 - r, 1.0 - r)) <= r;
-
-                if (!inside)
-                    col.a = 0;
+                // Rounded rect / oval mask with a soft edge instead of hard corner cuts.
+                float2 halfSize = float2(0.5 - r, 0.5 - r);
+                float2 q = abs(uv - 0.5) - halfSize;
+                float dist = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+                float edge = max(fwidth(dist), 0.001);
+                col.a *= 1.0 - smoothstep(0.0, edge, dist);
 
                 return col;
             }

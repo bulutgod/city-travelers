@@ -29,9 +29,11 @@ public class LobbyUINew : MonoBehaviour
     [SerializeField] private Button settingsButton;
     [SerializeField] private RawImage menuAvatarImage;
     [SerializeField] private TextMeshProUGUI menuNameText;
-    [Tooltip("Ana menü avatar maske: 0.5=daire, küçük değer=açık yeşili doldurur. AvatarMaskConfig varsa o kullanılır.")]
+    [Tooltip("Ana menü avatar maske: 0.5=oval/daire, küçük değer=yuvarlatılmış dikdörtgen.")]
     [Range(0.01f, 0.5f)]
-    [SerializeField] private float menuAvatarCornerRadius = 0.15f;
+    [SerializeField] private float menuAvatarCornerRadius = 0.5f;
+    [Tooltip("Açıkken kullanıcı panelindeki fotoğraf her zaman oval gösterilir.")]
+    [SerializeField] private bool forceMenuAvatarOval = true;
 
     [Header("Lobi - �st Bilgi")]
     [SerializeField] private TextMeshProUGUI playerCountText;  // "2 / 4 OYUNCU"
@@ -216,7 +218,8 @@ public class LobbyUINew : MonoBehaviour
 
     private float GetMenuAvatarCornerRadius()
     {
-        if (menuAvatarImage == null) return 0.15f;
+        if (forceMenuAvatarOval) return 0.5f;
+        if (menuAvatarImage == null) return menuAvatarCornerRadius;
         var config = menuAvatarImage.GetComponent<AvatarMaskConfig>();
         return config != null ? config.CornerRadius : menuAvatarCornerRadius;
     }
@@ -807,7 +810,7 @@ public class LobbyUINew : MonoBehaviour
     private void OnSettingsClicked()
     {
         if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
-        if (SettingsUI.Instance != null) SettingsUI.Instance.Show();
+        SettingsUI.ShowPanel();
     }
 
     private void OnCopyIdClicked()

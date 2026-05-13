@@ -2186,6 +2186,7 @@ public class GameHudUI : MonoBehaviour
             avRt.sizeDelta = avatarSize;
             var avatar = avatarGo.AddComponent<RawImage>();
             avatar.color = new Color(0.3f, 0.3f, 0.35f, 1f);
+            AvatarCircleMask.ApplyTo(avatar, 0.5f);
 
             var textGo = new GameObject("Text");
             textGo.transform.SetParent(root.transform, false);
@@ -2310,11 +2311,13 @@ public class GameHudUI : MonoBehaviour
                 {
                     _playerCornerHuds[slot].avatar.texture = p.avatarTexture;
                     _playerCornerHuds[slot].avatar.color = Color.white;
+                    AvatarCircleMask.ApplyTo(_playerCornerHuds[slot].avatar, 0.5f);
                 }
                 else
                 {
                     _playerCornerHuds[slot].avatar.texture = null;
                     _playerCornerHuds[slot].avatar.color = new Color(0.3f, 0.3f, 0.35f, 1f);
+                    AvatarCircleMask.ApplyTo(_playerCornerHuds[slot].avatar, 0.5f);
                 }
             }
         }

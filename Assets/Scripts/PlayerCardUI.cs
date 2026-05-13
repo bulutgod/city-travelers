@@ -75,7 +75,7 @@ public class PlayerCardUI : MonoBehaviour
         // Avatar: host icin gecikme olabiliyor, local player icin Steam'den yukle
         if (steamAvatarImage)
         {
-            AvatarCircleMask.ApplyTo(steamAvatarImage, 0f); // köşeli
+            AvatarCircleMask.ApplyTo(steamAvatarImage, 0.5f); // oval
             // Tasarımdaki daire alana tam oturması için boyut ayarla
             var rt = steamAvatarImage.GetComponent<RectTransform>();
             if (rt != null && avatarSize > 0)
@@ -84,6 +84,7 @@ public class PlayerCardUI : MonoBehaviour
             {
                 steamAvatarImage.texture = player.avatarTexture;
                 steamAvatarImage.color = Color.white;
+                AvatarCircleMask.ApplyTo(steamAvatarImage, 0.5f);
             }
             else if (player.isLocalPlayer && SteamClient.IsValid)
             {
@@ -158,7 +159,7 @@ public class PlayerCardUI : MonoBehaviour
         RefreshReadyTick(false);
         if (steamAvatarImage)
         {
-            AvatarCircleMask.ApplyTo(steamAvatarImage, 0f); // köşeli
+            AvatarCircleMask.ApplyTo(steamAvatarImage, 0.5f); // oval
             var rt = steamAvatarImage.GetComponent<RectTransform>();
             if (rt != null && avatarSize > 0)
                 rt.sizeDelta = new Vector2(avatarSize, avatarSize);
@@ -249,6 +250,7 @@ public class PlayerCardUI : MonoBehaviour
             tex.Apply();
             steamAvatarImage.texture = tex;
             steamAvatarImage.color = Color.white;
+            AvatarCircleMask.ApplyTo(steamAvatarImage, 0.5f);
         }
     }
 

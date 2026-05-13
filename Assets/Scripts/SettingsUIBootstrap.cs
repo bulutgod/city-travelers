@@ -1,19 +1,17 @@
 using UnityEngine;
 
 /// <summary>
-/// SettingsUI yoksa otomatik olusturur. Ilk sahneye eklenebilir veya RuntimeInitializeOnLoadMethod ile.
+/// Sahnedeki SettingsUI instance'ini runtime basinda bulur.
+/// Settings paneli artik koddan olusturulmaz; hazir GameObject uzerinden calisir.
 /// </summary>
 public class SettingsUIBootstrap : MonoBehaviour
 {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void EnsureSettingsUIExists()
+    private static void CacheSceneSettingsUI()
     {
         if (SettingsUI.Instance != null) return;
 
         var existing = FindFirstObjectByType<SettingsUI>();
         if (existing != null) return;
-
-        var go = new GameObject("SettingsUI");
-        go.AddComponent<SettingsUI>();
     }
 }
